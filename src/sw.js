@@ -1,4 +1,4 @@
-const CACHE = "krenzsketch-v5";
+const CACHE = "krenzsketch-v6";
 const ASSETS = [
 	"./",
 	"./index.html",

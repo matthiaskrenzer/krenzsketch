@@ -35,37 +35,52 @@
 			<header class="toolbar">
 				<div class="top-row">
 					<h1 class="brand">KrenzSketch</h1>
-					<button id="menu-btn" type="button" aria-haspopup="dialog">Menü</button>
+					<button
+						id="menu-btn"
+						type="button"
+						aria-expanded="false"
+						aria-controls="tool-panel"
+					>
+						Menü
+					</button>
 				</div>
 
-				<div class="group group-mode">
-					<label class="field" for="mode">Modus</label>
-					<select id="mode" aria-label="Zeichenmodus"></select>
-					<button id="eraser" type="button" aria-pressed="false">Radierer</button>
-				</div>
+				<div id="tool-panel" class="tool-panel">
+					<div class="group group-mode">
+						<label class="field" for="mode">Modus</label>
+						<select id="mode" aria-label="Zeichenmodus"></select>
+						<button id="eraser" type="button" aria-pressed="false">Radierer</button>
+					</div>
 
-				<div class="group group-color">
-					<label class="field" for="ink">Farbe</label>
-					<span class="swatch">
-						<input id="ink" type="color" value="#1c1c1c" aria-label="Stiftfarbe" />
-					</span>
-					<label class="field" for="paper">Papier</label>
-					<span class="swatch">
-						<input id="paper" type="color" value="#ece8e1" aria-label="Hintergrundfarbe" />
-					</span>
-				</div>
+					<div class="group group-color">
+						<label class="field" for="ink">Farbe</label>
+						<span class="swatch">
+							<input id="ink" type="color" value="#1c1c1c" aria-label="Stiftfarbe" />
+						</span>
+						<label class="field" for="paper">Papier</label>
+						<span class="swatch">
+							<input id="paper" type="color" value="#ece8e1" aria-label="Hintergrundfarbe" />
+						</span>
+					</div>
 
-				<div class="group group-size">
-					<label class="field" for="size">Stärke</label>
-					<input id="size" class="size" type="range" min="1" max="12" step="0.5" value="1.5" />
-					<span id="size-value" class="size-value">1,5</span>
-				</div>
+					<div class="group group-size">
+						<label class="field" for="size">Stärke</label>
+						<input id="size" class="size" type="range" min="1" max="12" step="0.5" value="1.5" />
+						<span id="size-value" class="size-value">1,5</span>
+					</div>
 
-				<div class="group group-actions">
-					<button id="undo" type="button" title="Rückgängig">Zurück</button>
-					<button id="redo" type="button" title="Wiederholen">Vor</button>
-					<button id="clear" class="danger" type="button">Löschen</button>
-					<button id="export" type="button">PNG</button>
+					<div class="group group-actions">
+						<button id="undo" type="button" title="Rückgängig">Zurück</button>
+						<button id="redo" type="button" title="Wiederholen">Vor</button>
+						<button id="clear" class="danger" type="button">Löschen</button>
+						<button id="export" type="button">PNG</button>
+					</div>
+
+					<nav class="tool-legal" aria-label="Hinweise">
+						<a href="./credits.html">Credits</a>
+						<a href="./impressum.html">Impressum</a>
+						<a href="./datenschutz.html">Datenschutz</a>
+					</nav>
 				</div>
 			</header>
 

@@ -26,6 +26,8 @@ html,
 body {
 	margin: 0;
 	height: 100%;
+	max-width: 100%;
+	overflow: hidden;
 	background: var(--bg);
 	color: var(--text);
 	font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -42,6 +44,8 @@ body {
 	flex-direction: column;
 	height: 100vh;
 	height: 100dvh;
+	overflow: hidden;
+	max-width: 100%;
 }
 
 .toolbar {
@@ -55,6 +59,17 @@ body {
 	user-select: none;
 	-webkit-user-select: none;
 	touch-action: manipulation;
+	position: relative;
+	z-index: 2;
+	max-width: 100%;
+}
+
+.tool-panel {
+	display: contents;
+}
+
+.tool-legal {
+	display: none;
 }
 
 .top-row {
@@ -268,13 +283,60 @@ dialog::backdrop {
 	}
 }
 
-@media (max-width: 820px) {
-	.top-row {
-		width: 100%;
+@media (max-width: 720px), (max-height: 540px) {
+	.toolbar {
+		flex-wrap: nowrap;
+		flex-direction: column;
+		align-items: stretch;
+		gap: 0;
+		padding: calc(4px + var(--safe-top)) calc(8px + var(--safe-right)) 4px calc(8px + var(--safe-left));
+		border-bottom: 1px solid var(--line);
 	}
 
-	.group-mode {
-		flex: 1 1 100%;
+	.top-row {
+		width: 100%;
+		min-height: 44px;
+	}
+
+	.brand {
+		font-size: 0.95rem;
+		padding-right: 0;
+	}
+
+	.tool-panel {
+		display: none;
+		position: absolute;
+		top: 100%;
+		left: 0;
+		right: 0;
+		z-index: 3;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 8px;
+		padding: 10px calc(8px + var(--safe-right)) 12px calc(8px + var(--safe-left));
+		background: var(--bar);
+		border-bottom: 1px solid var(--line);
+		max-height: min(70dvh, 28rem);
+		overflow-x: hidden;
+		overflow-y: auto;
+		-webkit-overflow-scrolling: touch;
+	}
+
+	.tools-open .tool-panel {
+		display: flex;
+	}
+
+	.group {
+		flex-wrap: wrap;
+		min-width: 0;
+	}
+
+	.group-mode,
+	.group-color,
+	.group-size,
+	.group-actions {
+		width: 100%;
+		margin-left: 0;
 	}
 
 	.group-mode select {
@@ -286,22 +348,42 @@ dialog::backdrop {
 		flex: 0 0 auto;
 	}
 
-	.group-size {
-		flex: 1 1 160px;
+	.group-size .size {
+		flex: 1 1 0;
 		min-width: 0;
+		max-width: none;
 	}
 
 	.group-actions {
-		margin-left: 0;
-		width: 100%;
 		display: grid;
-		grid-template-columns: 1fr 1fr 1fr 1fr;
+		grid-template-columns: repeat(4, minmax(0, 1fr));
 		gap: 8px;
 	}
 
 	.group-actions button {
 		width: 100%;
 		min-width: 0;
-		padding: 0 8px;
+		padding: 0 6px;
+		font-size: 0.82rem;
+	}
+
+	.tool-legal {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 8px 14px;
+		width: 100%;
+		padding-top: 4px;
+	}
+
+	.tool-legal a {
+		color: var(--muted);
+		font-size: 0.85rem;
+		min-height: 44px;
+		display: inline-flex;
+		align-items: center;
+	}
+
+	.stage {
+		padding: 0 var(--safe-right) var(--safe-bottom) var(--safe-left);
 	}
 }

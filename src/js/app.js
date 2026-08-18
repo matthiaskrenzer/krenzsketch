@@ -12,6 +12,7 @@ import { BRUSHES, createBrush, createEraser } from "./brushes.js";
 
 const SETTINGS_KEY = "krenzsketch-settings";
 const MAX_HISTORY = 12;
+const COMPACT_UI = "(max-width: 720px), (max-height: 540px)";
 
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d", { alpha: true, willReadFrequently: false });
@@ -49,6 +50,20 @@ const redoStack = [];
 
 function clamp(n, min, max) {
 	return Math.min(max, Math.max(min, n));
+}
+
+function isCompactUi() {
+	return window.matchMedia(COMPACT_UI).matches;
+}
+
+function setToolsOpen(open) {
+	document.documentElement.classList.toggle("tools-open", open);
+	ui.menuBtn.setAttribute("aria-expanded", open ? "true" : "false");
+	ui.menuBtn.classList.toggle("is-active", open && isCompactUi());
+}
+
+function collapseToolsIfCompact() {
+	if (isCompactUi()) setToolsOpen(false);
 }
 
 function hexToRgb(hex) {
@@ -253,6 +268,9 @@ function exportPng() {
 }
 
 function onPointerDown(event) {
+	if (isCompactUi() && document.documentElement.classList.contains("tools-open")) {
+		setToolsOpen(false);
+	}
 	if (state.drawing) return;
 	if (event.button != null && event.button !== 0) return;
 	event.preventDefault();
@@ -297,34 +315,48 @@ function bindUi() {
 		resetBrush();
 		syncEraseUi();
 		saveSettings();
+		collapseToolsIfCompact();
 	});
 
 	ui.eraser.addEventListener("click", () => {
 		state.erasing = !state.erasing;
 		resetBrush();
 		syncEraseUi();
+		collapseToolsIfCompact();
 	});
 
 	ui.ink.addEventListener("input", () => {
 		state.color = hexToRgb(ui.ink.value);
 		saveSettings();
 	});
+	ui.ink.addEventListener("change", collapseToolsIfCompact);
 
 	ui.paper.addEventListener("input", () => {
 		state.background = hexToRgb(ui.paper.value);
 		applyPaper();
 		saveSettings();
 	});
+	ui.paper.addEventListener("change", collapseToolsIfCompact);
 
 	ui.size.addEventListener("input", () => {
 		state.size = Number(ui.size.value);
 		ui.sizeValue.textContent = String(state.size).replace(".", ",");
 		saveSettings();
 	});
+	ui.size.addEventListener("change", collapseToolsIfCompact);
 
-	ui.undo.addEventListener("click", undo);
-	ui.redo.addEventListener("click", redo);
-	ui.exportBtn.addEventListener("click", exportPng);
+	ui.undo.addEventListener("click", () => {
+		undo();
+		collapseToolsIfCompact();
+	});
+	ui.redo.addEventListener("click", () => {
+		redo();
+		collapseToolsIfCompact();
+	});
+	ui.exportBtn.addEventListener("click", () => {
+		exportPng();
+		collapseToolsIfCompact();
+	});
 
 	ui.clear.addEventListener("click", () => {
 		ui.confirm.showModal();
@@ -332,9 +364,16 @@ function bindUi() {
 	ui.confirmOk.addEventListener("click", () => {
 		ui.confirm.close();
 		clearCanvas();
+		collapseToolsIfCompact();
 	});
 
-	ui.menuBtn.addEventListener("click", () => ui.menu.showModal());
+	ui.menuBtn.addEventListener("click", () => {
+		if (isCompactUi()) {
+			setToolsOpen(!document.documentElement.classList.contains("tools-open"));
+			return;
+		}
+		ui.menu.showModal();
+	});
 	ui.menu.addEventListener("click", (event) => {
 		if (event.target === ui.menu) ui.menu.close();
 	});
@@ -385,6 +424,9 @@ function init() {
 	bindCanvas();
 	bindKeys();
 	window.addEventListener("resize", resizeCanvas);
+	window.matchMedia(COMPACT_UI).addEventListener("change", (event) => {
+		if (!event.matches) setToolsOpen(false);
+	});
 	registerWorker();
 }
 
