@@ -138,6 +138,12 @@ button.danger:hover {
 	border-color: var(--danger);
 }
 
+button.is-active {
+	background: var(--text);
+	color: var(--bg);
+	border-color: var(--text);
+}
+
 .swatch {
 	position: relative;
 	width: 44px;
@@ -194,6 +200,10 @@ canvas {
 	touch-action: none;
 	cursor: crosshair;
 	background: var(--paper);
+}
+
+canvas.is-erasing {
+	cursor: cell;
 }
 
 dialog {
@@ -270,6 +280,10 @@ dialog::backdrop {
 	.group-mode select {
 		flex: 1;
 		min-width: 0;
+	}
+
+	#eraser {
+		flex: 0 0 auto;
 	}
 
 	.group-size {

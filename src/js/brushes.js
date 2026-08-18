@@ -21,6 +21,9 @@
  *   js/brushes/web.js
  *   js/brushes/simple.js
  *   js/brushes/chrome.js
+ *
+ * EraserBrush reuses the Sketchy neighbour-point geometry with
+ * destination-out compositing; it is original KrenzSketch code.
  */
 
 function rgba(color, alpha) {
@@ -282,6 +285,46 @@ class SimpleBrush {
 	}
 }
 
+/**
+ * Procedural eraser: Sketchy neighbour-point geometry with destination-out.
+ * Low alpha so one pass thins marks; repeats strengthen the erasure.
+ */
+class EraserBrush extends NeighbourBrush {
+	strokeStart(x, y) {
+		this.ctx.globalCompositeOperation = "destination-out";
+		super.strokeStart(x, y);
+	}
+
+	stroke(x, y, style) {
+		const { ctx } = this;
+		this.points.push([x, y]);
+		applyLine(ctx, style.size * 2);
+		ctx.strokeStyle = rgba([0, 0, 0], 0.12 * style.pressure);
+
+		ctx.beginPath();
+		ctx.moveTo(this.prevX, this.prevY);
+		ctx.lineTo(x, y);
+		ctx.stroke();
+
+		const current = this.points[this.count];
+		for (let i = 0; i < this.points.length; i++) {
+			const dx = this.points[i][0] - current[0];
+			const dy = this.points[i][1] - current[1];
+			const d = dx * dx + dy * dy;
+			if (d < 4000 && Math.random() > d / 2000) {
+				ctx.beginPath();
+				ctx.moveTo(current[0] + dx * 0.3, current[1] + dy * 0.3);
+				ctx.lineTo(this.points[i][0] - dx * 0.3, this.points[i][1] - dy * 0.3);
+				ctx.stroke();
+			}
+		}
+
+		this.prevX = x;
+		this.prevY = y;
+		this.count += 1;
+	}
+}
+
 export const BRUSHES = [
 	{ id: "sketchy", label: "Sketchy", create: (ctx) => new SketchyBrush(ctx) },
 	{ id: "shaded", label: "Shaded", create: (ctx) => new ShadedBrush(ctx) },
@@ -295,5 +338,11 @@ export function createBrush(id, ctx) {
 	const found = BRUSHES.find((item) => item.id === id) ?? BRUSHES[0];
 	const brush = found.create(ctx);
 	ctx.globalCompositeOperation = "source-over";
+	return brush;
+}
+
+export function createEraser(ctx) {
+	const brush = new EraserBrush(ctx);
+	ctx.globalCompositeOperation = "destination-out";
 	return brush;
 }

@@ -8,7 +8,7 @@
  * Procedural drawing modes live in brushes.js and are derived from Harmony.
  */
 
-import { BRUSHES, createBrush } from "./brushes.js";
+import { BRUSHES, createBrush, createEraser } from "./brushes.js";
 
 const SETTINGS_KEY = "krenzsketch-settings";
 const MAX_HISTORY = 12;
@@ -30,6 +30,7 @@ const ui = {
 	menu: document.getElementById("menu-dialog"),
 	confirm: document.getElementById("confirm-dialog"),
 	confirmOk: document.getElementById("confirm-ok"),
+	eraser: document.getElementById("eraser"),
 };
 
 const state = {
@@ -39,6 +40,7 @@ const state = {
 	size: 1.5,
 	drawing: false,
 	pointerId: null,
+	erasing: false,
 };
 
 let brush = null;
@@ -111,6 +113,13 @@ function syncUi() {
 	ui.sizeValue.textContent = String(state.size).replace(".", ",");
 	applyPaper();
 	updateHistoryButtons();
+	syncEraseUi();
+}
+
+function syncEraseUi() {
+	ui.eraser.setAttribute("aria-pressed", state.erasing ? "true" : "false");
+	ui.eraser.classList.toggle("is-active", state.erasing);
+	canvas.classList.toggle("is-erasing", state.erasing);
 }
 
 function currentStyle(pressure) {
@@ -140,17 +149,23 @@ function snapshotCanvas() {
 	const copy = document.createElement("canvas");
 	copy.width = canvas.width;
 	copy.height = canvas.height;
-	copy.getContext("2d").drawImage(canvas, 0, 0);
+	const copyCtx = copy.getContext("2d");
+	copyCtx.globalCompositeOperation = "source-over";
+	copyCtx.drawImage(canvas, 0, 0);
 	return copy;
 }
 
 function restoreSnapshot(snapshot) {
+	ctx.save();
+	ctx.globalCompositeOperation = "source-over";
 	ctx.setTransform(1, 0, 0, 1, 0, 0);
 	ctx.clearRect(0, 0, canvas.width, canvas.height);
 	if (snapshot) {
 		ctx.drawImage(snapshot, 0, 0, canvas.width, canvas.height);
 	}
+	ctx.restore();
 	fitContext();
+	ctx.globalCompositeOperation = state.erasing ? "destination-out" : "source-over";
 }
 
 function fitContext() {
@@ -172,7 +187,7 @@ function resizeCanvas() {
 }
 
 function resetBrush() {
-	brush = createBrush(state.mode, ctx);
+	brush = state.erasing ? createEraser(ctx) : createBrush(state.mode, ctx);
 }
 
 function pushHistory() {
@@ -205,8 +220,11 @@ function updateHistoryButtons() {
 }
 
 function clearCanvas() {
+	ctx.save();
+	ctx.globalCompositeOperation = "source-over";
 	ctx.setTransform(1, 0, 0, 1, 0, 0);
 	ctx.clearRect(0, 0, canvas.width, canvas.height);
+	ctx.restore();
 	fitContext();
 	resetBrush();
 	pushHistory();
@@ -217,6 +235,7 @@ function exportPng() {
 	out.width = canvas.width;
 	out.height = canvas.height;
 	const outCtx = out.getContext("2d");
+	outCtx.globalCompositeOperation = "source-over";
 	outCtx.fillStyle = cssRgb(state.background);
 	outCtx.fillRect(0, 0, out.width, out.height);
 	outCtx.drawImage(canvas, 0, 0);
@@ -274,8 +293,16 @@ function bindUi() {
 
 	ui.mode.addEventListener("change", () => {
 		state.mode = ui.mode.value;
+		state.erasing = false;
 		resetBrush();
+		syncEraseUi();
 		saveSettings();
+	});
+
+	ui.eraser.addEventListener("click", () => {
+		state.erasing = !state.erasing;
+		resetBrush();
+		syncEraseUi();
 	});
 
 	ui.ink.addEventListener("input", () => {
