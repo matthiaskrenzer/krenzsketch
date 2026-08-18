@@ -1,0 +1,17 @@
+{
+  "name": "krenzsketch",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Installierbare Zeichen-PWA. Zeichenalgorithmen abgeleitet von Harmony (Mr.doob).",
+  "license": "GPL-3.0-or-later",
+  "author": "Matthias Krenzer",
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "preview": "node scripts/preview.mjs",
+    "icons": "node scripts/generate-icons.mjs"
+  }
+}
