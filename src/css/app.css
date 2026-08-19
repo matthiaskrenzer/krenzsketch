@@ -10,7 +10,7 @@
 	--focus: #d8d0c4;
 	--paper: #ece8e1;
 	--danger: #c45c4a;
-	--workspace: #0e0e0e;
+	--workspace: var(--paper);
 	--safe-top: env(safe-area-inset-top, 0px);
 	--safe-right: env(safe-area-inset-right, 0px);
 	--safe-bottom: env(safe-area-inset-bottom, 0px);
@@ -243,26 +243,13 @@ button.is-active {
 
 canvas {
 	display: block;
-	position: absolute;
-	transform-origin: 0 0;
 	touch-action: none;
 	cursor: crosshair;
 	background: var(--paper);
-	box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.04);
 }
 
 canvas.is-erasing {
 	cursor: cell;
-}
-
-body.is-panning canvas,
-body.is-panning .stage {
-	cursor: grab;
-}
-
-body.is-panning-active canvas,
-body.is-panning-active .stage {
-	cursor: grabbing;
 }
 
 dialog {

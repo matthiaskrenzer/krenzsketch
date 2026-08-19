@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
  * Original KrenzSketch code (PWA shell, pointer input, undo/redo, export,
- * view transform, local persistence). Procedural drawing modes live in
- * brushes.js and are derived from Harmony.
+ * local persistence). Procedural drawing modes live in brushes.js and are
+ * derived from Harmony.
  */
 
 import { BRUSHES, createBrush, createEraser } from "./brushes.js";
@@ -14,8 +14,6 @@ import { clearWorkspace, loadWorkspace, saveWorkspace } from "./persist.js";
 
 const SETTINGS_KEY = "krenzsketch-settings";
 const MAX_HISTORY = 500;
-const DOC_SIZE = 2048;
-const MAX_ZOOM = 8;
 const SAVE_DELAY_MS = 400;
 const COMPACT_QUERIES = ["(hover: none)", "(pointer: coarse)", "(max-width: 1024px)", "(max-height: 700px)"];
 
@@ -24,10 +22,6 @@ const stage = document.getElementById("stage");
 const ctx = canvas.getContext("2d", { alpha: true, willReadFrequently: false });
 
 const dpr = Math.max(1, window.devicePixelRatio || 1);
-canvas.width = DOC_SIZE * dpr;
-canvas.height = DOC_SIZE * dpr;
-canvas.style.width = DOC_SIZE + "px";
-canvas.style.height = DOC_SIZE + "px";
 
 const ui = {
 	mode: document.getElementById("mode"),
@@ -39,7 +33,6 @@ const ui = {
 	redo: document.getElementById("redo"),
 	clear: document.getElementById("clear"),
 	exportBtn: document.getElementById("export"),
-	fitBtn: document.getElementById("fit-view"),
 	menuBtn: document.getElementById("menu-btn"),
 	menu: document.getElementById("menu-dialog"),
 	confirm: document.getElementById("confirm-dialog"),
@@ -56,20 +49,8 @@ const state = {
 	pointerId: null,
 	pointerType: "mouse",
 	erasing: false,
-	gesturing: false,
-	panning: false,
-	spaceDown: false,
 };
 
-const view = {
-	scale: 1,
-	x: 0,
-	y: 0,
-};
-
-const pointers = new Map();
-let pinch = null;
-let panOrigin = null;
 let brush = null;
 const undoStack = [];
 const redoStack = [];
@@ -86,16 +67,6 @@ function enqueueHistory(fn) {
 
 function clamp(n, min, max) {
 	return Math.min(max, Math.max(min, n));
-}
-
-function fitScale() {
-	const rect = stage.getBoundingClientRect();
-	if (rect.width < 1 || rect.height < 1) return 0.5;
-	return Math.min(rect.width / DOC_SIZE, rect.height / DOC_SIZE);
-}
-
-function minZoom() {
-	return Math.max(0.1, fitScale() * 0.5);
 }
 
 function isCompactUi() {
@@ -205,22 +176,53 @@ function pointerPressure(event) {
 }
 
 function canvasPoint(event) {
-	const rect = stage.getBoundingClientRect();
-	const stageX = event.clientX - rect.left;
-	const stageY = event.clientY - rect.top;
+	const rect = canvas.getBoundingClientRect();
 	return {
-		x: (stageX - view.x) / view.scale,
-		y: (stageY - view.y) / view.scale,
+		x: (event.clientX - rect.left) * (canvas.width / rect.width) / dpr,
+		y: (event.clientY - rect.top) * (canvas.height / rect.height) / dpr,
 	};
-}
-
-function eventOnCanvas(event) {
-	const pt = canvasPoint(event);
-	return pt.x >= 0 && pt.x <= DOC_SIZE && pt.y >= 0 && pt.y <= DOC_SIZE;
 }
 
 function fitContext() {
 	ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+
+function sizeCanvas() {
+	const rect = stage.getBoundingClientRect();
+	const w = Math.round(rect.width);
+	const h = Math.round(rect.height);
+	if (w < 1 || h < 1) return;
+
+	const oldW = canvas.width;
+	const oldH = canvas.height;
+	const logW = w;
+	const logH = h;
+	const bmpW = logW * dpr;
+	const bmpH = logH * dpr;
+
+	if (bmpW === oldW && bmpH === oldH) return;
+
+	let saved = null;
+	if (oldW > 0 && oldH > 0) {
+		saved = ctx.getImageData(0, 0, oldW, oldH);
+	}
+
+	canvas.width = bmpW;
+	canvas.height = bmpH;
+	canvas.style.width = logW + "px";
+	canvas.style.height = logH + "px";
+
+	if (saved) {
+		ctx.putImageData(saved, 0, 0);
+	}
+
+	fitContext();
+	ctx.globalCompositeOperation = state.erasing ? "destination-out" : "source-over";
+
+	undoStack.length = 0;
+	redoStack.length = 0;
+	lastHistoryBlob = null;
+	enqueueHistory(() => pushHistory());
 }
 
 function snapshotCanvas() {
@@ -244,39 +246,6 @@ async function restoreSnapshot(snapshot) {
 	ctx.restore();
 	fitContext();
 	ctx.globalCompositeOperation = state.erasing ? "destination-out" : "source-over";
-}
-
-function applyView() {
-	canvas.style.transform = `translate(${view.x}px, ${view.y}px) scale(${view.scale})`;
-}
-
-function fitView() {
-	const rect = stage.getBoundingClientRect();
-	const sw = rect.width;
-	const sh = rect.height;
-	if (sw < 1 || sh < 1) return;
-	const scale = fitScale();
-	view.scale = clamp(scale, minZoom(), MAX_ZOOM);
-	view.x = (sw - DOC_SIZE * view.scale) / 2;
-	view.y = (sh - DOC_SIZE * view.scale) / 2;
-	applyView();
-}
-
-function resetView() {
-	fitView();
-}
-
-function zoomAt(clientX, clientY, nextScale) {
-	const scale = clamp(nextScale, minZoom(), MAX_ZOOM);
-	const rect = stage.getBoundingClientRect();
-	const sx = clientX - rect.left;
-	const sy = clientY - rect.top;
-	const contentX = (sx - view.x) / view.scale;
-	const contentY = (sy - view.y) / view.scale;
-	view.scale = scale;
-	view.x = sx - contentX * scale;
-	view.y = sy - contentY * scale;
-	applyView();
 }
 
 function resetBrush() {
@@ -334,7 +303,6 @@ async function clearCanvas() {
 	fitContext();
 	resetBrush();
 	await resetHistory();
-	resetView();
 }
 
 function getContentBounds() {
@@ -450,95 +418,26 @@ async function restoreWorkspace() {
 			saveSettings();
 		}
 		const bitmap = await createImageBitmap(record.blob);
-		await restoreSnapshot(bitmap);
+		ctx.save();
+		ctx.globalCompositeOperation = "source-over";
+		ctx.setTransform(1, 0, 0, 1, 0, 0);
+		ctx.clearRect(0, 0, canvas.width, canvas.height);
+		ctx.drawImage(bitmap, 0, 0);
+		ctx.restore();
+		fitContext();
+		ctx.globalCompositeOperation = state.erasing ? "destination-out" : "source-over";
 		if (typeof bitmap.close === "function") bitmap.close();
 	} catch (err) {
 		console.warn("Could not restore drawing:", err);
 	}
 }
 
-function touchPointers() {
-	const list = [];
-	for (const pointer of pointers.values()) {
-		if (pointer.type === "touch") list.push(pointer);
-	}
-	return list;
-}
-
-function trackPointer(event) {
-	pointers.set(event.pointerId, {
-		id: event.pointerId,
-		type: event.pointerType || "mouse",
-		x: event.clientX,
-		y: event.clientY,
-	});
-}
-
-function beginPinch() {
-	const pts = touchPointers();
-	if (pts.length < 2) return;
-	state.gesturing = true;
-	const [a, b] = pts;
-	pinch = {
-		startDist: Math.hypot(b.x - a.x, b.y - a.y) || 1,
-		startScale: view.scale,
-		startMid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 },
-		startView: { x: view.x, y: view.y },
-	};
-}
-
-function updatePinch() {
-	const pts = touchPointers();
-	if (pts.length < 2 || !pinch) return;
-	const [a, b] = pts;
-	const dist = Math.hypot(b.x - a.x, b.y - a.y) || 1;
-	const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
-	const nextScale = clamp(pinch.startScale * (dist / pinch.startDist), minZoom(), MAX_ZOOM);
-	const rect = stage.getBoundingClientRect();
-	const sx = pinch.startMid.x - rect.left;
-	const sy = pinch.startMid.y - rect.top;
-	const contentX = (sx - pinch.startView.x) / pinch.startScale;
-	const contentY = (sy - pinch.startView.y) / pinch.startScale;
-	view.scale = nextScale;
-	view.x = sx - contentX * nextScale + (mid.x - pinch.startMid.x);
-	view.y = sy - contentY * nextScale + (mid.y - pinch.startMid.y);
-	applyView();
-}
-
-function endPinch() {
-	state.gesturing = false;
-	pinch = null;
-}
-
-function beginMousePan(event) {
-	state.panning = true;
-	state.pointerId = event.pointerId;
-	panOrigin = { x: event.clientX - view.x, y: event.clientY - view.y };
-	document.body.classList.add("is-panning-active");
-	try {
-		stage.setPointerCapture(event.pointerId);
-	} catch {
-		/* ignore */
-	}
-}
-
-async function cancelTouchStroke() {
-	if (!state.drawing || state.pointerType === "pen") return;
-	state.drawing = false;
-	state.pointerId = null;
-	if (typeof brush.strokeEnd === "function") brush.strokeEnd();
-	await restoreSnapshot(undoStack[undoStack.length - 1] ?? null);
-	resetBrush();
-}
-
 function startDraw(event) {
 	event.preventDefault();
-	if (event.pointerType !== "touch") {
-		try {
-			canvas.setPointerCapture(event.pointerId);
-		} catch {
-			/* ignore */
-		}
+	try {
+		canvas.setPointerCapture(event.pointerId);
+	} catch {
+		/* ignore */
 	}
 	state.drawing = true;
 	state.pointerId = event.pointerId;
@@ -548,8 +447,6 @@ function startDraw(event) {
 }
 
 function onPointerDown(event) {
-	trackPointer(event);
-
 	if (document.activeElement && document.activeElement !== document.body) {
 		document.activeElement.blur();
 	}
@@ -558,52 +455,12 @@ function onPointerDown(event) {
 		setToolsOpen(false);
 	}
 
-	if (event.pointerType === "touch" && state.drawing && state.pointerType === "pen") {
-		return;
-	}
-
-	if (event.pointerType === "touch" && touchPointers().length >= 2) {
-		cancelTouchStroke();
-		beginPinch();
-		event.preventDefault();
-		return;
-	}
-
-	if (state.gesturing || state.panning || state.drawing) return;
-
-	const mouse = !event.pointerType || event.pointerType === "mouse";
-	if (mouse && state.spaceDown && (event.button == null || event.button === 0)) {
-		beginMousePan(event);
-		event.preventDefault();
-		return;
-	}
-
+	if (state.drawing) return;
 	if (event.button != null && event.button !== 0) return;
-	if (!eventOnCanvas(event)) return;
 	startDraw(event);
 }
 
 function onPointerMove(event) {
-	if (pointers.has(event.pointerId)) {
-		const pointer = pointers.get(event.pointerId);
-		pointer.x = event.clientX;
-		pointer.y = event.clientY;
-	}
-
-	if (state.gesturing) {
-		event.preventDefault();
-		updatePinch();
-		return;
-	}
-
-	if (state.panning && event.pointerId === state.pointerId && panOrigin) {
-		event.preventDefault();
-		view.x = event.clientX - panOrigin.x;
-		view.y = event.clientY - panOrigin.y;
-		applyView();
-		return;
-	}
-
 	if (!state.drawing || event.pointerId !== state.pointerId) return;
 	event.preventDefault();
 	const events = typeof event.getCoalescedEvents === "function" ? event.getCoalescedEvents() : [event];
@@ -615,23 +472,6 @@ function onPointerMove(event) {
 }
 
 function onPointerUp(event) {
-	pointers.delete(event.pointerId);
-
-	if (state.gesturing) {
-		if (touchPointers().length < 2) endPinch();
-		event.preventDefault();
-		return;
-	}
-
-	if (state.panning && event.pointerId === state.pointerId) {
-		state.panning = false;
-		state.pointerId = null;
-		panOrigin = null;
-		document.body.classList.remove("is-panning-active");
-		event.preventDefault();
-		return;
-	}
-
 	if (!state.drawing || event.pointerId !== state.pointerId) return;
 	event.preventDefault();
 	brush.strokeEnd();
@@ -641,16 +481,6 @@ function onPointerUp(event) {
 		await pushHistory();
 		scheduleSave(true);
 	});
-}
-
-function onWheel(event) {
-	event.preventDefault();
-	const intensity = event.ctrlKey ? -event.deltaY * 0.01 : -event.deltaY * 0.0025;
-	zoomAt(event.clientX, event.clientY, view.scale * Math.exp(intensity));
-}
-
-function onGesture(event) {
-	event.preventDefault();
 }
 
 function bindUi() {
@@ -711,10 +541,6 @@ function bindUi() {
 		exportPng();
 		collapseToolsIfCompact();
 	});
-	ui.fitBtn.addEventListener("click", () => {
-		resetView();
-		collapseToolsIfCompact();
-	});
 
 	ui.clear.addEventListener("click", () => {
 		ui.confirm.showModal();
@@ -748,35 +574,15 @@ function bindUi() {
 }
 
 function bindCanvas() {
-	stage.addEventListener("pointerdown", onPointerDown);
-	stage.addEventListener("pointermove", onPointerMove);
-	stage.addEventListener("pointerup", onPointerUp);
-	stage.addEventListener("pointercancel", onPointerUp);
-	stage.addEventListener("wheel", onWheel, { passive: false });
-	stage.addEventListener("contextmenu", (event) => event.preventDefault());
-	stage.addEventListener("gesturestart", onGesture);
-	stage.addEventListener("gesturechange", onGesture);
-	stage.addEventListener("gestureend", onGesture);
-	document.addEventListener("gesturestart", onGesture);
-	document.addEventListener("gesturechange", onGesture);
-}
-
-function isTypingTarget(event) {
-	const target = event.target;
-	if (!(target instanceof Element)) return false;
-	return Boolean(target.closest("input, select, textarea, button, dialog"));
+	canvas.addEventListener("pointerdown", onPointerDown);
+	canvas.addEventListener("pointermove", onPointerMove);
+	canvas.addEventListener("pointerup", onPointerUp);
+	canvas.addEventListener("pointercancel", onPointerUp);
+	canvas.addEventListener("contextmenu", (event) => event.preventDefault());
 }
 
 function bindKeys() {
 	window.addEventListener("keydown", (event) => {
-		if (event.code === "Space" && !event.repeat && !isTypingTarget(event)) {
-			event.preventDefault();
-			state.spaceDown = true;
-			document.body.classList.add("is-panning");
-		}
-		if (event.key === "1" && !isTypingTarget(event) && !event.metaKey && !event.ctrlKey) {
-			resetView();
-		}
 		const meta = event.metaKey || event.ctrlKey;
 		if (meta && event.key.toLowerCase() === "z") {
 			event.preventDefault();
@@ -787,16 +593,6 @@ function bindKeys() {
 			event.preventDefault();
 			enqueueHistory(() => redo());
 		}
-	});
-	window.addEventListener("keyup", (event) => {
-		if (event.code === "Space") {
-			state.spaceDown = false;
-			document.body.classList.remove("is-panning");
-		}
-	});
-	window.addEventListener("blur", () => {
-		state.spaceDown = false;
-		document.body.classList.remove("is-panning");
 	});
 }
 
@@ -849,6 +645,12 @@ function showUpdateBanner(worker) {
 	});
 }
 
+let resizeTimer = 0;
+function onResize() {
+	clearTimeout(resizeTimer);
+	resizeTimer = setTimeout(() => sizeCanvas(), 100);
+}
+
 async function init() {
 	loadSettings();
 	bindUi();
@@ -857,7 +659,7 @@ async function init() {
 	bindCanvas();
 	bindKeys();
 
-	window.addEventListener("resize", () => fitView());
+	window.addEventListener("resize", onResize);
 	for (const query of COMPACT_QUERIES) {
 		window.matchMedia(query).addEventListener("change", syncCompactClass);
 	}
@@ -873,14 +675,13 @@ async function init() {
 		}
 	});
 
+	sizeCanvas();
 	fitContext();
 	resetBrush();
 	await restoreWorkspace();
 	await pushHistory();
 	persistEnabled = true;
 
-	await new Promise((resolve) => requestAnimationFrame(resolve));
-	fitView();
 	registerWorker();
 }
 

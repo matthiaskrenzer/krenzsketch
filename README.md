@@ -6,14 +6,13 @@ Standalone, installable drawing PWA by Matthias Krenzer.
 
 ## Features
 
-- Fixed 2048×2048 document canvas, independent of screen size
+- Adaptive fullscreen canvas — fills available screen space on any device
 - Procedural brushes: Sketchy, Shaded, Fur, Web, Line, Chrome, Squares, Circles, Triangles
 - Procedural eraser
 - Drawing color and paper color pickers
 - Adjustable stroke size with pen pressure support
-- Zoom, pan, and fit (pinch, scroll wheel, Space + drag)
 - Undo / Redo (full session history)
-- PNG export (always full document)
+- PNG export (cropped to drawn area)
 - Local autosave and persistence (IndexedDB)
 - Clear with confirmation
 - Installable offline PWA with controlled update mechanism
