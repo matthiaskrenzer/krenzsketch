@@ -8,7 +8,7 @@
   implementation derived from Harmony by Mr.doob (original Harmony:
   Copyright (C) 2010 Mr.doob, https://github.com/mrdoob/harmony).
 -->
-<html lang="de">
+<html lang="en">
 	<head>
 		<meta charset="utf-8" />
 		<meta
@@ -22,13 +22,19 @@
 		<meta name="apple-mobile-web-app-title" content="KrenzSketch" />
 		<meta
 			name="description"
-			content="KrenzSketch ist eine eigenständige Zeichen-PWA. Die Zeichenalgorithmen basieren auf Harmony von Mr.doob."
+			content="KrenzSketch is a standalone drawing PWA. Brush algorithms are based on Harmony by Mr.doob."
 		/>
 		<title>KrenzSketch</title>
 		<link rel="manifest" href="./manifest.webmanifest" />
 		<link rel="icon" href="./favicon.svg" type="image/svg+xml" />
 		<link rel="apple-touch-icon" href="./apple-touch-icon.png" />
 		<link rel="stylesheet" href="./css/app.css" />
+		<script>
+			document.documentElement.classList.toggle(
+				"compact-ui",
+				window.matchMedia("(hover: none), (pointer: coarse), (max-width: 1024px), (max-height: 700px)").matches,
+			);
+		</script>
 	</head>
 	<body>
 		<div class="app">
@@ -41,51 +47,54 @@
 						aria-expanded="false"
 						aria-controls="tool-panel"
 					>
-						Menü
+						Menu
 					</button>
 				</div>
 
 				<div id="tool-panel" class="tool-panel">
 					<div class="group group-mode">
-						<label class="field" for="mode">Modus</label>
-						<select id="mode" aria-label="Zeichenmodus"></select>
-						<button id="eraser" type="button" aria-pressed="false">Radierer</button>
+						<label class="field" for="mode">Brush</label>
+						<select id="mode" aria-label="Brush"></select>
+						<button id="eraser" type="button" aria-pressed="false">Eraser</button>
 					</div>
 
 					<div class="group group-color">
-						<label class="field" for="ink">Farbe</label>
+						<label class="field" for="ink">Color</label>
 						<span class="swatch">
-							<input id="ink" type="color" value="#1c1c1c" aria-label="Stiftfarbe" />
+							<input id="ink" type="color" value="#1c1c1c" aria-label="Ink color" />
 						</span>
-						<label class="field" for="paper">Papier</label>
+						<label class="field" for="paper">Paper</label>
 						<span class="swatch">
-							<input id="paper" type="color" value="#ece8e1" aria-label="Hintergrundfarbe" />
+							<input id="paper" type="color" value="#ece8e1" aria-label="Paper color" />
 						</span>
 					</div>
 
 					<div class="group group-size">
-						<label class="field" for="size">Stärke</label>
+						<label class="field" for="size">Size</label>
 						<input id="size" class="size" type="range" min="1" max="12" step="0.5" value="1.5" />
-						<span id="size-value" class="size-value">1,5</span>
+						<span id="size-value" class="size-value">1.5</span>
 					</div>
 
 					<div class="group group-actions">
-						<button id="undo" type="button" title="Rückgängig">Zurück</button>
-						<button id="redo" type="button" title="Wiederholen">Vor</button>
-						<button id="clear" class="danger" type="button">Löschen</button>
+						<button id="undo" type="button" title="Undo">Undo</button>
+						<button id="redo" type="button" title="Redo">Redo</button>
+						<button id="clear" class="danger" type="button">Clear</button>
 						<button id="export" type="button">PNG</button>
+						<button id="reset-view" type="button" title="Reset view">Reset</button>
 					</div>
 
-					<nav class="tool-legal" aria-label="Hinweise">
-						<a href="./credits.html">Credits</a>
+					<nav class="tool-legal" aria-label="Legal">
+						<a href="./about.html">About</a>
 						<a href="./impressum.html">Impressum</a>
 						<a href="./datenschutz.html">Datenschutz</a>
 					</nav>
 				</div>
 			</header>
 
-			<main class="stage">
-				<canvas id="canvas" aria-label="Zeichenfläche"></canvas>
+			<main class="stage" id="stage">
+				<div class="viewport" id="viewport">
+					<canvas id="canvas" aria-label="Drawing canvas"></canvas>
+				</div>
 			</main>
 		</div>
 
@@ -93,26 +102,26 @@
 			<div class="sheet">
 				<h2>KrenzSketch</h2>
 				<p>
-					Eigenständige Zeichenanwendung. Keine Cloud-Speicherung, keine Tracker.
+					Standalone drawing app. No cloud storage, no trackers.
 				</p>
-				<nav aria-label="Weitere Seiten">
-					<a href="./credits.html">Credits / Open Source</a>
+				<nav aria-label="Further pages">
+					<a href="./about.html">About</a>
 					<a href="./impressum.html">Impressum</a>
 					<a href="./datenschutz.html">Datenschutz</a>
 				</nav>
 				<menu>
-					<button type="button" onclick="this.closest('dialog').close()">Schließen</button>
+					<button type="button" onclick="this.closest('dialog').close()">Close</button>
 				</menu>
 			</div>
 		</dialog>
 
 		<dialog id="confirm-dialog">
 			<div class="sheet">
-				<h2>Zeichenfläche löschen?</h2>
-				<p>Die aktuelle Zeichnung wird entfernt. Über Rückgängig kann der letzte Stand wiederhergestellt werden.</p>
+				<h2>Clear current drawing?</h2>
+				<p>This permanently removes the current drawing from this device.</p>
 				<menu>
-					<button type="button" onclick="this.closest('dialog').close()">Abbrechen</button>
-					<button id="confirm-ok" class="danger" type="button">Löschen</button>
+					<button type="button" onclick="this.closest('dialog').close()">Cancel</button>
+					<button id="confirm-ok" class="danger" type="button">Clear</button>
 				</menu>
 			</div>
 		</dialog>

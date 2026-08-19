@@ -241,7 +241,7 @@ class ChromeBrush extends NeighbourBrush {
 }
 
 /**
- * Linie: single polyline, redrawn from a snapshot while the stroke is active.
+ * Line: single polyline, redrawn from a snapshot while the stroke is active.
  * Original: js/brushes/simple.js
  */
 class SimpleBrush {
@@ -330,7 +330,7 @@ export const BRUSHES = [
 	{ id: "shaded", label: "Shaded", create: (ctx) => new ShadedBrush(ctx) },
 	{ id: "fur", label: "Fur", create: (ctx) => new FurBrush(ctx) },
 	{ id: "web", label: "Web", create: (ctx) => new WebBrush(ctx) },
-	{ id: "simple", label: "Linie", create: (ctx) => new SimpleBrush(ctx) },
+	{ id: "simple", label: "Line", create: (ctx) => new SimpleBrush(ctx) },
 	{ id: "chrome", label: "Chrome", create: (ctx) => new ChromeBrush(ctx) },
 ];
 

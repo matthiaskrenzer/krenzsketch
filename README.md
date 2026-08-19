@@ -1,69 +1,59 @@
 # KrenzSketch
 
-KrenzSketch ist eine eigenständige, installierbare Zeichen-PWA von Matthias Krenzer.
+Standalone, installable drawing PWA by Matthias Krenzer.
 
-Es ist **nicht** Harmony und **nicht** LiveSketch HD.
+**Live:** [https://krenzsketch.web.app](https://krenzsketch.web.app)
 
-## Lizenz
+## Features
 
-KrenzSketch steht unter der **GNU GPL v3 oder später**.
+- Procedural brushes: Sketchy, Shaded, Fur, Web, Line, Chrome
+- Procedural eraser
+- Ink and paper color pickers
+- Adjustable stroke size with pen pressure support
+- Zoom and pan (pinch, scroll wheel, Space + drag)
+- Undo / Redo
+- PNG export
+- Persistent working drawing (IndexedDB)
+- Clear with confirmation
+- Installable PWA, works offline
+- Compact collapsible toolbar on touch devices
 
-Der unveränderte offizielle GNU-GPL-v3-Text liegt in [`LICENSE`](LICENSE).
+## Tech
 
-Die GPL gilt, weil die Zeichenmodi Harmony-Algorithmen reimplementieren bzw. davon abgeleitet sind. KrenzSketch ist damit ein GPL-kompatibles, eigenständiges Programm, kein unverändertes Harmony.
+Vanilla HTML, CSS, and JavaScript. No framework, no external fonts, no trackers, no cookies.
 
-Copyright an den neu geschriebenen KrenzSketch-Dateien: Matthias Krenzer, 2026.
+Hosted on Firebase Hosting. Firebase project: `krenzsketch`.
 
 ## Harmony
 
-Harmony ist das **ursprüngliche** Open-Source-Zeichenprojekt von Mr.doob:
+The procedural brush algorithms are derived from **Harmony** by Mr.doob:
 
-- Repository: [https://github.com/mrdoob/harmony](https://github.com/mrdoob/harmony)
+- [github.com/mrdoob/harmony](https://github.com/mrdoob/harmony)
 - Harmony, Procedural Drawing Tool
 - Copyright (C) 2010 Mr.doob
-- Lizenz: GNU GPL v3 oder später
+- GNU GPL v3 or later
 
-Die originale Harmony-Lizenznotiz liegt unverändert in [`third_party/harmony/LICENSE`](third_party/harmony/LICENSE).
+The original Harmony license is preserved in [`third_party/harmony/LICENSE`](third_party/harmony/LICENSE).
 
-Harmony speichert die Punkte eines Strichs und verbindet neue Punkte mit früheren Nachbarpunkten. Sketchy, Shaded, Fur, Web und Chrome sind Varianten dieses Nachbarpunkt-Prinzips.
+KrenzSketch reimplements the neighbour-point geometry rules in [`src/js/brushes.js`](src/js/brushes.js). The Harmony UI, color wheel, and application shell were not used.
 
-KrenzSketch übernimmt diese geometrischen Regeln in einer modernen Neuimplementierung (`src/js/brushes.js`). Die Harmony-Oberfläche von 2010, Menü, Farbkreis und Anwendungsrahmen wurden nicht übernommen.
+## License
 
-Harmony-Quellen, die die Pinselregeln informiert haben: `js/brushes/sketchy.js`, `shaded.js`, `fur.js`, `web.js`, `simple.js`, `chrome.js`.
+**GNU GPL v3 or later** — see [`LICENSE`](LICENSE).
 
-Nicht übernommen: `js/main.js`, `js/menu.js`, `js/about.js`, `js/colorselector.js`, `js/palette.js`, `js/colorutils.js`, Wacom-Plugin, Local-Storage der ganzen Leinwand.
+Copyright (C) 2026 Matthias Krenzer.
 
-Neu in KrenzSketch: Pointer Events (Maus, Touch, Pencil-Druck soweit der Browser das liefert), Undo/Redo, native Farbfelder, PWA mit Service Worker, eigene dunkle Oberfläche.
-
-## LiveSketch HD
-
-LiveSketch HD diente ausschließlich als historische Inspiration für eine ruhige, installierbare Zeichenanwendung auf dem iPad. Es wurden **kein Code, keine Assets, keine Icons, keine Texte, keine Oberflächen und keine Marken** aus LiveSketch HD übernommen.
-
-## Technik
-
-Vanilla HTML, CSS und JavaScript. Kein Frontend-Framework, keine externen Schriftarten, keine Tracker, keine Cookies.
-
-Zeichnungen bleiben auf dem Gerät. Optional werden nur Werkzeugeinstellungen im Local Storage gespeichert. Export als PNG erfolgt lokal.
-
-## Entwicklung
+## Development
 
 ```bash
-npm run build
-npm run preview
+npm run build      # → dist/
+npm run preview    # local preview server
 ```
 
-Build-Ausgabe: `dist/`. Node 18 oder neuer.
+Requires Node 18+.
 
-Noch kein GitHub-Remote und kein Firebase-Projekt. `firebase.json` ist vorbereitet (`public`: `dist`). Es liegen keine Secrets im Repository.
+## Deploy
 
-## Funktionen
-
-- freie Zeichenfläche
-- Maus, Touch, Pointer/Pencil
-- Modi Sketchy, Shaded, Fur, Web, Linie, Chrome
-- Stift- und Hintergrundfarbe
-- Strichstärke
-- Löschen, Undo, Redo
-- PNG-Export
-- installierbare PWA, offline nutzbar
-- Impressum, Datenschutz, Credits
+```bash
+firebase deploy --only hosting
+```

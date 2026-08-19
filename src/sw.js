@@ -1,14 +1,15 @@
-const CACHE = "krenzsketch-v6";
+const CACHE = "krenzsketch-v8";
 const ASSETS = [
 	"./",
 	"./index.html",
-	"./credits.html",
+	"./about.html",
 	"./impressum.html",
 	"./datenschutz.html",
 	"./css/app.css",
 	"./css/legal.css",
 	"./js/app.js",
 	"./js/brushes.js",
+	"./js/persist.js",
 	"./manifest.webmanifest",
 	"./icons/icon-192.png",
 	"./icons/icon-512.png",

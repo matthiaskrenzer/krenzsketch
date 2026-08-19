@@ -28,6 +28,7 @@ body {
 	height: 100%;
 	max-width: 100%;
 	overflow: hidden;
+	overscroll-behavior: none;
 	background: var(--bg);
 	color: var(--text);
 	font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -52,8 +53,8 @@ body {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
-	gap: 8px 10px;
-	padding: calc(10px + var(--safe-top)) calc(12px + var(--safe-right)) 10px calc(12px + var(--safe-left));
+	gap: 6px 8px;
+	padding: calc(6px + var(--safe-top)) calc(10px + var(--safe-right)) 6px calc(10px + var(--safe-left));
 	background: var(--bar);
 	border-bottom: 1px solid var(--line);
 	user-select: none;
@@ -76,27 +77,35 @@ body {
 	display: flex;
 	align-items: center;
 	gap: 10px;
-	width: 100%;
+	width: auto;
+	margin-right: 8px;
 }
 
 .brand {
 	margin: 0;
-	font-size: 1rem;
+	font-size: 0.95rem;
 	font-weight: 600;
 	letter-spacing: 0.02em;
-	padding-right: 8px;
+	padding-right: 4px;
 	margin-right: auto;
 }
 
 .group {
 	display: flex;
 	align-items: center;
-	gap: 8px;
+	gap: 6px;
+}
+
+.group-color,
+.group-size,
+.group-actions {
+	padding-left: 10px;
+	border-left: 1px solid var(--line);
 }
 
 .group-actions {
 	margin-left: auto;
-	flex-wrap: nowrap;
+	flex-wrap: wrap;
 }
 
 label.field {
@@ -104,13 +113,13 @@ label.field {
 	align-items: center;
 	gap: 8px;
 	color: var(--muted);
-	font-size: 0.85rem;
+	font-size: 0.8rem;
 }
 
 select,
 button,
 input[type="range"] {
-	min-height: 44px;
+	min-height: 40px;
 	font: inherit;
 }
 
@@ -119,17 +128,17 @@ button {
 	background: var(--btn);
 	color: var(--text);
 	border: 1px solid var(--line);
-	border-radius: 10px;
-	padding: 0 14px;
+	border-radius: 8px;
+	padding: 0 12px;
 }
 
 select {
-	min-width: 8rem;
+	min-width: 7.5rem;
 }
 
 button {
 	cursor: pointer;
-	min-width: 44px;
+	min-width: 40px;
 }
 
 button:hover,
@@ -161,9 +170,9 @@ button.is-active {
 
 .swatch {
 	position: relative;
-	width: 44px;
-	height: 44px;
-	border-radius: 10px;
+	width: 40px;
+	height: 40px;
+	border-radius: 8px;
 	border: 1px solid var(--line);
 	overflow: hidden;
 	background: var(--btn);
@@ -190,26 +199,42 @@ button.is-active {
 }
 
 .size {
-	min-width: 140px;
-	flex: 1 1 140px;
-	max-width: 240px;
+	min-width: 120px;
+	flex: 1 1 120px;
+	max-width: 200px;
 	accent-color: var(--text);
 }
 
 .size-value {
 	min-width: 2rem;
 	color: var(--text);
+	font-variant-numeric: tabular-nums;
 }
 
 .stage {
 	flex: 1;
 	min-height: 0;
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
 	padding: 0 var(--safe-right) var(--safe-bottom) var(--safe-left);
 	background: var(--bg);
+	touch-action: none;
+}
+
+.viewport {
+	flex: 1;
+	min-height: 0;
+	width: 100%;
+	position: relative;
+	transform-origin: 0 0;
+	will-change: transform;
 }
 
 canvas {
 	display: block;
+	position: absolute;
+	inset: 0;
 	width: 100%;
 	height: 100%;
 	touch-action: none;
@@ -219,6 +244,16 @@ canvas {
 
 canvas.is-erasing {
 	cursor: cell;
+}
+
+body.is-panning canvas,
+body.is-panning .stage {
+	cursor: grab;
+}
+
+body.is-panning-active canvas,
+body.is-panning-active .stage {
+	cursor: grabbing;
 }
 
 dialog {
@@ -276,114 +311,122 @@ dialog::backdrop {
 	color: var(--text);
 }
 
-@media (min-width: 1100px) {
-	.top-row {
-		width: auto;
-		margin-right: 8px;
-	}
+html.compact-ui .toolbar {
+	flex-wrap: nowrap;
+	flex-direction: column;
+	align-items: stretch;
+	gap: 0;
+	padding: calc(4px + var(--safe-top)) calc(8px + var(--safe-right)) 4px calc(8px + var(--safe-left));
 }
 
-@media (max-width: 720px), (max-height: 540px) {
-	.toolbar {
-		flex-wrap: nowrap;
-		flex-direction: column;
-		align-items: stretch;
-		gap: 0;
-		padding: calc(4px + var(--safe-top)) calc(8px + var(--safe-right)) 4px calc(8px + var(--safe-left));
-		border-bottom: 1px solid var(--line);
-	}
+html.compact-ui .top-row {
+	width: 100%;
+	min-height: 44px;
+	margin-right: 0;
+}
 
-	.top-row {
-		width: 100%;
-		min-height: 44px;
-	}
+html.compact-ui .brand {
+	font-size: 0.95rem;
+	padding-right: 0;
+}
 
-	.brand {
-		font-size: 0.95rem;
-		padding-right: 0;
-	}
+html.compact-ui select,
+html.compact-ui button,
+html.compact-ui input[type="range"] {
+	min-height: 44px;
+}
 
-	.tool-panel {
-		display: none;
-		position: absolute;
-		top: 100%;
-		left: 0;
-		right: 0;
-		z-index: 3;
-		flex-wrap: wrap;
-		align-items: center;
-		gap: 8px;
-		padding: 10px calc(8px + var(--safe-right)) 12px calc(8px + var(--safe-left));
-		background: var(--bar);
-		border-bottom: 1px solid var(--line);
-		max-height: min(70dvh, 28rem);
-		overflow-x: hidden;
-		overflow-y: auto;
-		-webkit-overflow-scrolling: touch;
-	}
+html.compact-ui button {
+	min-width: 44px;
+}
 
-	.tools-open .tool-panel {
-		display: flex;
-	}
+html.compact-ui .swatch {
+	width: 44px;
+	height: 44px;
+}
 
-	.group {
-		flex-wrap: wrap;
-		min-width: 0;
-	}
+html.compact-ui .tool-panel {
+	display: none;
+	position: absolute;
+	top: 100%;
+	left: 0;
+	right: 0;
+	z-index: 3;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
+	padding: 10px calc(8px + var(--safe-right)) 12px calc(8px + var(--safe-left));
+	background: var(--bar);
+	border-bottom: 1px solid var(--line);
+	max-height: min(70dvh, 28rem);
+	overflow-x: hidden;
+	overflow-y: auto;
+	-webkit-overflow-scrolling: touch;
+}
 
-	.group-mode,
-	.group-color,
-	.group-size,
-	.group-actions {
-		width: 100%;
-		margin-left: 0;
-	}
+html.compact-ui.tools-open .tool-panel {
+	display: flex;
+}
 
-	.group-mode select {
-		flex: 1;
-		min-width: 0;
-	}
+html.compact-ui .group {
+	flex-wrap: wrap;
+	min-width: 0;
+	padding-left: 0;
+	border-left: 0;
+}
 
-	#eraser {
-		flex: 0 0 auto;
-	}
+html.compact-ui .group-mode,
+html.compact-ui .group-color,
+html.compact-ui .group-size,
+html.compact-ui .group-actions {
+	width: 100%;
+	margin-left: 0;
+}
 
-	.group-size .size {
-		flex: 1 1 0;
-		min-width: 0;
-		max-width: none;
-	}
+html.compact-ui .group-mode select {
+	flex: 1;
+	min-width: 0;
+}
 
-	.group-actions {
-		display: grid;
-		grid-template-columns: repeat(4, minmax(0, 1fr));
-		gap: 8px;
-	}
+html.compact-ui #eraser {
+	flex: 0 0 auto;
+}
 
-	.group-actions button {
-		width: 100%;
-		min-width: 0;
-		padding: 0 6px;
-		font-size: 0.82rem;
-	}
+html.compact-ui .group-size .size {
+	flex: 1 1 0;
+	min-width: 0;
+	max-width: none;
+}
 
-	.tool-legal {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 8px 14px;
-		width: 100%;
-		padding-top: 4px;
-	}
+html.compact-ui .group-actions {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 8px;
+}
 
-	.tool-legal a {
-		color: var(--muted);
-		font-size: 0.85rem;
-		min-height: 44px;
-		display: inline-flex;
-		align-items: center;
-	}
+html.compact-ui .group-actions button {
+	width: 100%;
+	min-width: 0;
+	padding: 0 6px;
+	font-size: 0.82rem;
+}
 
-	.stage {
-		padding: 0 var(--safe-right) var(--safe-bottom) var(--safe-left);
-	}
+html.compact-ui .tool-legal {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px 14px;
+	width: 100%;
+	padding-top: 4px;
+}
+
+html.compact-ui .tool-legal a {
+	color: var(--muted);
+	font-size: 0.85rem;
+	min-height: 44px;
+	display: inline-flex;
+	align-items: center;
+}
+
+html.compact-ui .stage {
+	padding: 0 var(--safe-right) var(--safe-bottom) var(--safe-left);
 }
