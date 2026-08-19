@@ -1,10 +1,9 @@
-const CACHE = "krenzsketch-v8";
+const CACHE = "krenzsketch-__BUILD_ID__";
+const CACHE_PREFIX = "krenzsketch-";
 const ASSETS = [
 	"./",
 	"./index.html",
 	"./about.html",
-	"./impressum.html",
-	"./datenschutz.html",
 	"./css/app.css",
 	"./css/legal.css",
 	"./js/app.js",
@@ -20,10 +19,7 @@ const ASSETS = [
 
 self.addEventListener("install", (event) => {
 	event.waitUntil(
-		caches
-			.open(CACHE)
-			.then((cache) => cache.addAll(ASSETS))
-			.then(() => self.skipWaiting()),
+		caches.open(CACHE).then((cache) => cache.addAll(ASSETS)),
 	);
 });
 
@@ -31,9 +27,21 @@ self.addEventListener("activate", (event) => {
 	event.waitUntil(
 		caches
 			.keys()
-			.then((keys) => Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key))))
+			.then((keys) =>
+				Promise.all(
+					keys
+						.filter((key) => key.startsWith(CACHE_PREFIX) && key !== CACHE)
+						.map((key) => caches.delete(key)),
+				),
+			)
 			.then(() => self.clients.claim()),
 	);
+});
+
+self.addEventListener("message", (event) => {
+	if (event.data === "skipWaiting") {
+		self.skipWaiting();
+	}
 });
 
 self.addEventListener("fetch", (event) => {

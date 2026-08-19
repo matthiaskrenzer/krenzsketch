@@ -10,19 +10,24 @@
  */
 
 import { BRUSHES, createBrush, createEraser } from "./brushes.js";
-import { canvasToPngBlob, clearWorkspace, loadWorkspace, saveWorkspace } from "./persist.js";
+import { clearWorkspace, loadWorkspace, saveWorkspace } from "./persist.js";
 
 const SETTINGS_KEY = "krenzsketch-settings";
-const MAX_HISTORY = 12;
-const MIN_ZOOM = 0.25;
+const MAX_HISTORY = 500;
+const DOC_SIZE = 2048;
 const MAX_ZOOM = 8;
 const SAVE_DELAY_MS = 400;
 const COMPACT_QUERIES = ["(hover: none)", "(pointer: coarse)", "(max-width: 1024px)", "(max-height: 700px)"];
 
 const canvas = document.getElementById("canvas");
 const stage = document.getElementById("stage");
-const viewport = document.getElementById("viewport");
 const ctx = canvas.getContext("2d", { alpha: true, willReadFrequently: false });
+
+const dpr = Math.max(1, window.devicePixelRatio || 1);
+canvas.width = DOC_SIZE * dpr;
+canvas.height = DOC_SIZE * dpr;
+canvas.style.width = DOC_SIZE + "px";
+canvas.style.height = DOC_SIZE + "px";
 
 const ui = {
 	mode: document.getElementById("mode"),
@@ -34,7 +39,7 @@ const ui = {
 	redo: document.getElementById("redo"),
 	clear: document.getElementById("clear"),
 	exportBtn: document.getElementById("export"),
-	resetView: document.getElementById("reset-view"),
+	fitBtn: document.getElementById("fit-view"),
 	menuBtn: document.getElementById("menu-btn"),
 	menu: document.getElementById("menu-dialog"),
 	confirm: document.getElementById("confirm-dialog"),
@@ -72,9 +77,25 @@ let saveTimer = 0;
 let saveQueued = false;
 let saveGeneration = 0;
 let persistEnabled = false;
+let lastHistoryBlob = null;
+
+let historyChain = Promise.resolve();
+function enqueueHistory(fn) {
+	historyChain = historyChain.then(fn, fn);
+}
 
 function clamp(n, min, max) {
 	return Math.min(max, Math.max(min, n));
+}
+
+function fitScale() {
+	const rect = stage.getBoundingClientRect();
+	if (rect.width < 1 || rect.height < 1) return 0.5;
+	return Math.min(rect.width / DOC_SIZE, rect.height / DOC_SIZE);
+}
+
+function minZoom() {
+	return Math.max(0.1, fitScale() * 0.5);
 }
 
 function isCompactUi() {
@@ -184,74 +205,69 @@ function pointerPressure(event) {
 }
 
 function canvasPoint(event) {
-	const rect = canvas.getBoundingClientRect();
-	if (rect.width < 1 || rect.height < 1) return { x: 0, y: 0 };
+	const rect = stage.getBoundingClientRect();
+	const stageX = event.clientX - rect.left;
+	const stageY = event.clientY - rect.top;
 	return {
-		x: ((event.clientX - rect.left) / rect.width) * canvas.clientWidth,
-		y: ((event.clientY - rect.top) / rect.height) * canvas.clientHeight,
+		x: (stageX - view.x) / view.scale,
+		y: (stageY - view.y) / view.scale,
 	};
 }
 
 function eventOnCanvas(event) {
-	const rect = canvas.getBoundingClientRect();
-	return event.clientX >= rect.left && event.clientX <= rect.right && event.clientY >= rect.top && event.clientY <= rect.bottom;
+	const pt = canvasPoint(event);
+	return pt.x >= 0 && pt.x <= DOC_SIZE && pt.y >= 0 && pt.y <= DOC_SIZE;
+}
+
+function fitContext() {
+	ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
 
 function snapshotCanvas() {
-	const copy = document.createElement("canvas");
-	copy.width = canvas.width;
-	copy.height = canvas.height;
-	const copyCtx = copy.getContext("2d");
-	copyCtx.globalCompositeOperation = "source-over";
-	copyCtx.drawImage(canvas, 0, 0);
-	return copy;
+	return new Promise((resolve) => {
+		canvas.toBlob((blob) => resolve(blob), "image/png");
+	});
 }
 
-function restoreSnapshot(snapshot) {
+async function restoreSnapshot(snapshot) {
 	ctx.save();
 	ctx.globalCompositeOperation = "source-over";
 	ctx.setTransform(1, 0, 0, 1, 0, 0);
 	ctx.clearRect(0, 0, canvas.width, canvas.height);
 	if (snapshot) {
-		ctx.drawImage(snapshot, 0, 0, canvas.width, canvas.height);
+		const source = snapshot instanceof Blob
+			? await createImageBitmap(snapshot)
+			: snapshot;
+		ctx.drawImage(source, 0, 0, canvas.width, canvas.height);
+		if (source !== snapshot && typeof source.close === "function") source.close();
 	}
 	ctx.restore();
 	fitContext();
 	ctx.globalCompositeOperation = state.erasing ? "destination-out" : "source-over";
 }
 
-function fitContext() {
-	const dpr = Math.max(1, window.devicePixelRatio || 1);
-	ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-}
-
-function resizeCanvas() {
-	const prev = snapshotCanvas();
-	const dpr = Math.max(1, window.devicePixelRatio || 1);
-	const cssW = Math.max(1, canvas.clientWidth);
-	const cssH = Math.max(1, canvas.clientHeight);
-	const width = Math.max(1, Math.round(cssW * dpr));
-	const height = Math.max(1, Math.round(cssH * dpr));
-	if (canvas.width === width && canvas.height === height) return;
-
-	canvas.width = width;
-	canvas.height = height;
-	restoreSnapshot(prev.width ? prev : null);
-}
-
 function applyView() {
-	viewport.style.transform = `translate(${view.x}px, ${view.y}px) scale(${view.scale})`;
+	canvas.style.transform = `translate(${view.x}px, ${view.y}px) scale(${view.scale})`;
 }
 
-function resetView() {
-	view.scale = 1;
-	view.x = 0;
-	view.y = 0;
+function fitView() {
+	const rect = stage.getBoundingClientRect();
+	const sw = rect.width;
+	const sh = rect.height;
+	if (sw < 1 || sh < 1) return;
+	const scale = fitScale();
+	view.scale = clamp(scale, minZoom(), MAX_ZOOM);
+	view.x = (sw - DOC_SIZE * view.scale) / 2;
+	view.y = (sh - DOC_SIZE * view.scale) / 2;
 	applyView();
 }
 
+function resetView() {
+	fitView();
+}
+
 function zoomAt(clientX, clientY, nextScale) {
-	const scale = clamp(nextScale, MIN_ZOOM, MAX_ZOOM);
+	const scale = clamp(nextScale, minZoom(), MAX_ZOOM);
 	const rect = stage.getBoundingClientRect();
 	const sx = clientX - rect.left;
 	const sy = clientY - rect.top;
@@ -267,27 +283,31 @@ function resetBrush() {
 	brush = state.erasing ? createEraser(ctx) : createBrush(state.mode, ctx);
 }
 
-function pushHistory() {
+async function pushHistory() {
 	redoStack.length = 0;
-	undoStack.push(snapshotCanvas());
+	const blob = await snapshotCanvas();
+	undoStack.push(blob);
+	lastHistoryBlob = blob;
 	while (undoStack.length > MAX_HISTORY) undoStack.shift();
 	updateHistoryButtons();
 }
 
-function undo() {
+async function undo() {
 	if (undoStack.length < 2) return;
 	redoStack.push(undoStack.pop());
-	restoreSnapshot(undoStack[undoStack.length - 1]);
+	await restoreSnapshot(undoStack[undoStack.length - 1]);
+	lastHistoryBlob = null;
 	resetBrush();
 	updateHistoryButtons();
 	scheduleSave();
 }
 
-function redo() {
+async function redo() {
 	if (!redoStack.length) return;
 	const snapshot = redoStack.pop();
 	undoStack.push(snapshot);
-	restoreSnapshot(snapshot);
+	await restoreSnapshot(snapshot);
+	lastHistoryBlob = null;
 	resetBrush();
 	updateHistoryButtons();
 	scheduleSave();
@@ -298,13 +318,14 @@ function updateHistoryButtons() {
 	ui.redo.disabled = redoStack.length === 0;
 }
 
-function resetHistory() {
+async function resetHistory() {
 	undoStack.length = 0;
 	redoStack.length = 0;
-	pushHistory();
+	lastHistoryBlob = null;
+	await pushHistory();
 }
 
-function clearCanvas() {
+async function clearCanvas() {
 	ctx.save();
 	ctx.globalCompositeOperation = "source-over";
 	ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -312,7 +333,7 @@ function clearCanvas() {
 	ctx.restore();
 	fitContext();
 	resetBrush();
-	resetHistory();
+	await resetHistory();
 	resetView();
 }
 
@@ -359,7 +380,8 @@ async function flushSave() {
 	saveTimer = 0;
 	const generation = ++saveGeneration;
 	try {
-		const blob = await canvasToPngBlob(canvas);
+		const blob = lastHistoryBlob ?? await snapshotCanvas();
+		lastHistoryBlob = null;
 		if (generation !== saveGeneration) return;
 		await saveWorkspace({
 			blob,
@@ -396,7 +418,7 @@ async function restoreWorkspace() {
 			saveSettings();
 		}
 		const bitmap = await createImageBitmap(record.blob);
-		restoreSnapshot(bitmap);
+		await restoreSnapshot(bitmap);
 		if (typeof bitmap.close === "function") bitmap.close();
 	} catch (err) {
 		console.warn("Could not restore drawing:", err);
@@ -439,7 +461,7 @@ function updatePinch() {
 	const [a, b] = pts;
 	const dist = Math.hypot(b.x - a.x, b.y - a.y) || 1;
 	const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
-	const nextScale = clamp(pinch.startScale * (dist / pinch.startDist), MIN_ZOOM, MAX_ZOOM);
+	const nextScale = clamp(pinch.startScale * (dist / pinch.startDist), minZoom(), MAX_ZOOM);
 	const rect = stage.getBoundingClientRect();
 	const sx = pinch.startMid.x - rect.left;
 	const sy = pinch.startMid.y - rect.top;
@@ -468,12 +490,12 @@ function beginMousePan(event) {
 	}
 }
 
-function cancelTouchStroke() {
+async function cancelTouchStroke() {
 	if (!state.drawing || state.pointerType === "pen") return;
 	state.drawing = false;
 	state.pointerId = null;
 	if (typeof brush.strokeEnd === "function") brush.strokeEnd();
-	restoreSnapshot(undoStack[undoStack.length - 1] ?? null);
+	await restoreSnapshot(undoStack[undoStack.length - 1] ?? null);
 	resetBrush();
 }
 
@@ -495,6 +517,10 @@ function startDraw(event) {
 
 function onPointerDown(event) {
 	trackPointer(event);
+
+	if (document.activeElement && document.activeElement !== document.body) {
+		document.activeElement.blur();
+	}
 
 	if (isCompactUi() && document.documentElement.classList.contains("tools-open")) {
 		setToolsOpen(false);
@@ -579,8 +605,10 @@ function onPointerUp(event) {
 	brush.strokeEnd();
 	state.drawing = false;
 	state.pointerId = null;
-	pushHistory();
-	scheduleSave(true);
+	enqueueHistory(async () => {
+		await pushHistory();
+		scheduleSave(true);
+	});
 }
 
 function onWheel(event) {
@@ -608,6 +636,7 @@ function bindUi() {
 		syncEraseUi();
 		saveSettings();
 		collapseToolsIfCompact();
+		ui.mode.blur();
 	});
 
 	ui.eraser.addEventListener("click", () => {
@@ -639,18 +668,18 @@ function bindUi() {
 	ui.size.addEventListener("change", collapseToolsIfCompact);
 
 	ui.undo.addEventListener("click", () => {
-		undo();
+		enqueueHistory(() => undo());
 		collapseToolsIfCompact();
 	});
 	ui.redo.addEventListener("click", () => {
-		redo();
+		enqueueHistory(() => redo());
 		collapseToolsIfCompact();
 	});
 	ui.exportBtn.addEventListener("click", () => {
 		exportPng();
 		collapseToolsIfCompact();
 	});
-	ui.resetView.addEventListener("click", () => {
+	ui.fitBtn.addEventListener("click", () => {
 		resetView();
 		collapseToolsIfCompact();
 	});
@@ -660,8 +689,7 @@ function bindUi() {
 	});
 	ui.confirmOk.addEventListener("click", () => {
 		ui.confirm.close();
-		clearCanvas();
-		void discardSavedDrawing();
+		void clearCanvas().then(() => discardSavedDrawing());
 		collapseToolsIfCompact();
 	});
 
@@ -679,7 +707,7 @@ function bindUi() {
 		if (event.target === ui.confirm) ui.confirm.close();
 	});
 
-	for (const link of document.querySelectorAll(".tool-legal a, #menu-dialog a")) {
+	for (const link of document.querySelectorAll(".btn-about, .tool-legal a, #menu-dialog a")) {
 		link.addEventListener("click", () => {
 			saveQueued = true;
 			void flushSave();
@@ -720,12 +748,12 @@ function bindKeys() {
 		const meta = event.metaKey || event.ctrlKey;
 		if (meta && event.key.toLowerCase() === "z") {
 			event.preventDefault();
-			if (event.shiftKey) redo();
-			else undo();
+			if (event.shiftKey) enqueueHistory(() => redo());
+			else enqueueHistory(() => undo());
 		}
 		if (meta && event.key.toLowerCase() === "y") {
 			event.preventDefault();
-			redo();
+			enqueueHistory(() => redo());
 		}
 	});
 	window.addEventListener("keyup", (event) => {
@@ -743,10 +771,50 @@ function bindKeys() {
 async function registerWorker() {
 	if (!("serviceWorker" in navigator)) return;
 	try {
-		await navigator.serviceWorker.register("./sw.js", { updateViaCache: "none" });
+		const reg = await navigator.serviceWorker.register("./sw.js", { updateViaCache: "none" });
+
+		function onNewWorker(worker) {
+			if (worker.state === "installed") showUpdateBanner(worker);
+			else worker.addEventListener("statechange", () => {
+				if (worker.state === "installed") showUpdateBanner(worker);
+			});
+		}
+
+		if (reg.waiting) onNewWorker(reg.waiting);
+		reg.addEventListener("updatefound", () => {
+			if (reg.installing) onNewWorker(reg.installing);
+		});
+
+		setInterval(() => { reg.update().catch(() => {}); }, 10 * 60 * 1000);
 	} catch (err) {
 		console.warn("Service Worker not registered:", err);
 	}
+}
+
+function showUpdateBanner(worker) {
+	const banner = document.getElementById("update-banner");
+	const btnNow = document.getElementById("update-now");
+	const btnLater = document.getElementById("update-later");
+	if (!banner || !btnNow || !btnLater) return;
+
+	banner.hidden = false;
+
+	btnLater.onclick = () => { banner.hidden = true; };
+
+	btnNow.onclick = async () => {
+		btnNow.disabled = true;
+		btnNow.textContent = "Saving…";
+		saveQueued = true;
+		await flushSave();
+		worker.postMessage("skipWaiting");
+	};
+
+	let reloading = false;
+	navigator.serviceWorker.addEventListener("controllerchange", () => {
+		if (reloading) return;
+		reloading = true;
+		window.location.reload();
+	});
 }
 
 async function init() {
@@ -756,7 +824,8 @@ async function init() {
 	syncCompactClass();
 	bindCanvas();
 	bindKeys();
-	window.addEventListener("resize", resizeCanvas);
+
+	window.addEventListener("resize", () => fitView());
 	for (const query of COMPACT_QUERIES) {
 		window.matchMedia(query).addEventListener("change", syncCompactClass);
 	}
@@ -771,12 +840,15 @@ async function init() {
 			void flushSave();
 		}
 	});
-	await new Promise((resolve) => requestAnimationFrame(resolve));
-	resizeCanvas();
+
+	fitContext();
 	resetBrush();
 	await restoreWorkspace();
-	pushHistory();
+	await pushHistory();
 	persistEnabled = true;
+
+	await new Promise((resolve) => requestAnimationFrame(resolve));
+	fitView();
 	registerWorker();
 }
 

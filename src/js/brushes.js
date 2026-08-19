@@ -22,6 +22,14 @@
  *   js/brushes/simple.js
  *   js/brushes/chrome.js
  *
+ * Harmony originals that informed the geometric brushes:
+ *   js/brushes/squares.js
+ *   js/brushes/circles.js
+ *
+ * SquaresBrush and CirclesBrush are modern reimplementations derived from
+ * the Harmony squares and circles algorithms. TrianglesBrush is an original
+ * KrenzSketch extension using the same procedural drawing principle.
+ *
  * EraserBrush reuses the Sketchy neighbour-point geometry with
  * destination-out compositing; it is original KrenzSketch code.
  */
@@ -241,15 +249,17 @@ class ChromeBrush extends NeighbourBrush {
 }
 
 /**
- * Line: single polyline, redrawn from a snapshot while the stroke is active.
+ * Line: single polyline rendered on a lightweight overlay canvas during the
+ * stroke, then composited onto the main canvas at strokeEnd.
  * Original: js/brushes/simple.js
  */
 class SimpleBrush {
 	constructor(ctx) {
 		this.ctx = ctx;
 		this.points = [];
-		this.buffer = document.createElement("canvas");
-		this.bufferCtx = this.buffer.getContext("2d");
+		this.overlay = document.createElement("canvas");
+		this.overlayCtx = this.overlay.getContext("2d");
+		this.lastStyle = null;
 	}
 
 	reset() {
@@ -258,31 +268,205 @@ class SimpleBrush {
 
 	strokeStart(x, y) {
 		this.points = [{ x, y }];
-		this.buffer.width = this.ctx.canvas.width;
-		this.buffer.height = this.ctx.canvas.height;
-		this.bufferCtx.drawImage(this.ctx.canvas, 0, 0);
+		const main = this.ctx.canvas;
+		const dpr = main.width / parseInt(main.style.width);
+		this.overlay.width = main.width;
+		this.overlay.height = main.height;
+		this.overlayCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+		this.overlay.style.cssText = main.style.cssText;
+		this.overlay.style.pointerEvents = "none";
+		this.overlay.style.position = "absolute";
+		main.parentNode.appendChild(this.overlay);
 	}
 
 	stroke(x, y, style) {
 		this.points.push({ x, y });
-		this.ctx.save();
-		this.ctx.setTransform(1, 0, 0, 1, 0, 0);
-		this.ctx.clearRect(0, 0, this.ctx.canvas.width, this.ctx.canvas.height);
-		this.ctx.drawImage(this.buffer, 0, 0);
-		this.ctx.restore();
-		applyLine(this.ctx, style.size);
-		this.ctx.strokeStyle = rgba(style.color, 0.5 * style.pressure);
-		this.ctx.beginPath();
-		this.ctx.moveTo(this.points[0].x, this.points[0].y);
+		this.lastStyle = style;
+		const oc = this.overlayCtx;
+		oc.save();
+		oc.setTransform(1, 0, 0, 1, 0, 0);
+		oc.clearRect(0, 0, this.overlay.width, this.overlay.height);
+		oc.restore();
+		applyLine(oc, style.size);
+		oc.strokeStyle = rgba(style.color, 0.5 * style.pressure);
+		oc.beginPath();
+		oc.moveTo(this.points[0].x, this.points[0].y);
 		for (let i = 1; i < this.points.length; i++) {
-			this.ctx.lineTo(this.points[i].x, this.points[i].y);
+			oc.lineTo(this.points[i].x, this.points[i].y);
 		}
-		this.ctx.stroke();
+		oc.stroke();
 	}
 
 	strokeEnd() {
+		if (this.points.length > 1 && this.lastStyle) {
+			const { ctx } = this;
+			applyLine(ctx, this.lastStyle.size);
+			ctx.strokeStyle = rgba(this.lastStyle.color, 0.5 * this.lastStyle.pressure);
+			ctx.beginPath();
+			ctx.moveTo(this.points[0].x, this.points[0].y);
+			for (let i = 1; i < this.points.length; i++) {
+				ctx.lineTo(this.points[i].x, this.points[i].y);
+			}
+			ctx.stroke();
+		}
 		this.points = [];
+		this.lastStyle = null;
+		if (this.overlay.parentNode) this.overlay.parentNode.removeChild(this.overlay);
 	}
+}
+
+/**
+ * Squares: parallelogram shapes between consecutive points, perpendicular
+ * to the movement direction. Derived from Harmony js/brushes/squares.js.
+ */
+class SquaresBrush {
+	constructor(ctx) {
+		this.ctx = ctx;
+		this.prevX = 0;
+		this.prevY = 0;
+	}
+
+	reset() {}
+
+	strokeStart(x, y) {
+		this.prevX = x;
+		this.prevY = y;
+	}
+
+	stroke(x, y, style) {
+		const { ctx } = this;
+		const dx = x - this.prevX;
+		const dy = y - this.prevY;
+		const px = -dy;
+		const py = dx;
+
+		ctx.lineWidth = style.size * 0.5;
+		ctx.fillStyle = rgba(style.color, 0.12 * style.pressure);
+		ctx.strokeStyle = rgba(style.color, 0.4 * style.pressure);
+
+		ctx.beginPath();
+		ctx.moveTo(this.prevX - px, this.prevY - py);
+		ctx.lineTo(this.prevX + px, this.prevY + py);
+		ctx.lineTo(x + px, y + py);
+		ctx.lineTo(x - px, y - py);
+		ctx.closePath();
+		ctx.fill();
+		ctx.stroke();
+
+		this.prevX = x;
+		this.prevY = y;
+	}
+
+	strokeEnd() {}
+}
+
+/**
+ * Circles: concentric arcs at grid-snapped centres, radius derived from
+ * movement distance. Derived from Harmony js/brushes/circles.js.
+ */
+class CirclesBrush {
+	constructor(ctx) {
+		this.ctx = ctx;
+		this.prevX = 0;
+		this.prevY = 0;
+	}
+
+	reset() {}
+
+	strokeStart(x, y) {
+		this.prevX = x;
+		this.prevY = y;
+	}
+
+	stroke(x, y, style) {
+		const { ctx } = this;
+		const dx = x - this.prevX;
+		const dy = y - this.prevY;
+		const d = Math.sqrt(dx * dx + dy * dy) * 2;
+
+		const gridSize = Math.max(20, style.size * 18);
+		const cx = Math.floor(x / gridSize) * gridSize + gridSize * 0.5;
+		const cy = Math.floor(y / gridSize) * gridSize + gridSize * 0.5;
+
+		ctx.lineWidth = style.size * 0.5;
+		ctx.strokeStyle = rgba(style.color, 0.08 * style.pressure);
+
+		const steps = Math.floor(Math.random() * 8) + 1;
+		const stepDelta = d / steps;
+
+		for (let i = 0; i < steps; i++) {
+			const r = (steps - i) * stepDelta;
+			if (r < 0.5) continue;
+			ctx.beginPath();
+			ctx.arc(cx, cy, r, 0, Math.PI * 2);
+			ctx.stroke();
+		}
+
+		this.prevX = x;
+		this.prevY = y;
+	}
+
+	strokeEnd() {}
+}
+
+/**
+ * Triangles: dynamic triangles along the drawing path. Size and orientation
+ * derive from movement direction and distance. Original KrenzSketch code.
+ */
+class TrianglesBrush {
+	constructor(ctx) {
+		this.ctx = ctx;
+		this.prevX = 0;
+		this.prevY = 0;
+		this.angle = 0;
+	}
+
+	reset() {
+		this.angle = 0;
+	}
+
+	strokeStart(x, y) {
+		this.prevX = x;
+		this.prevY = y;
+		this.angle = 0;
+	}
+
+	stroke(x, y, style) {
+		const { ctx } = this;
+		const dx = x - this.prevX;
+		const dy = y - this.prevY;
+		const dist = Math.sqrt(dx * dx + dy * dy);
+		if (dist < 1) return;
+
+		const moveAngle = Math.atan2(dy, dx);
+		this.angle += 0.3 + Math.random() * 0.4;
+		const r = dist * 0.8 + style.size * 2;
+
+		const a1 = moveAngle + this.angle;
+		const a2 = a1 + 2.094;
+		const a3 = a2 + 2.094;
+
+		const mx = (this.prevX + x) * 0.5;
+		const my = (this.prevY + y) * 0.5;
+
+		ctx.lineWidth = style.size * 0.4;
+		ctx.fillStyle = rgba(style.color, 0.08 * style.pressure);
+		ctx.strokeStyle = rgba(style.color, 0.3 * style.pressure);
+
+		ctx.beginPath();
+		ctx.moveTo(mx + Math.cos(a1) * r, my + Math.sin(a1) * r);
+		ctx.lineTo(mx + Math.cos(a2) * r, my + Math.sin(a2) * r);
+		ctx.lineTo(mx + Math.cos(a3) * r, my + Math.sin(a3) * r);
+		ctx.closePath();
+		ctx.fill();
+		ctx.stroke();
+
+		this.prevX = x;
+		this.prevY = y;
+	}
+
+	strokeEnd() {}
 }
 
 /**
@@ -332,6 +516,9 @@ export const BRUSHES = [
 	{ id: "web", label: "Web", create: (ctx) => new WebBrush(ctx) },
 	{ id: "simple", label: "Line", create: (ctx) => new SimpleBrush(ctx) },
 	{ id: "chrome", label: "Chrome", create: (ctx) => new ChromeBrush(ctx) },
+	{ id: "squares", label: "Squares", create: (ctx) => new SquaresBrush(ctx) },
+	{ id: "circles", label: "Circles", create: (ctx) => new CirclesBrush(ctx) },
+	{ id: "triangles", label: "Triangles", create: (ctx) => new TrianglesBrush(ctx) },
 ];
 
 export function createBrush(id, ctx) {

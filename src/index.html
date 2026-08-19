@@ -41,6 +41,7 @@
 			<header class="toolbar">
 				<div class="top-row">
 					<h1 class="brand">KrenzSketch</h1>
+					<a class="btn-about" href="./about.html">About</a>
 					<button
 						id="menu-btn"
 						type="button"
@@ -53,7 +54,6 @@
 
 				<div id="tool-panel" class="tool-panel">
 					<div class="group group-mode">
-						<label class="field" for="mode">Brush</label>
 						<select id="mode" aria-label="Brush"></select>
 						<button id="eraser" type="button" aria-pressed="false">Eraser</button>
 					</div>
@@ -61,7 +61,7 @@
 					<div class="group group-color">
 						<label class="field" for="ink">Color</label>
 						<span class="swatch">
-							<input id="ink" type="color" value="#1c1c1c" aria-label="Ink color" />
+							<input id="ink" type="color" value="#1c1c1c" aria-label="Drawing color" />
 						</span>
 						<label class="field" for="paper">Paper</label>
 						<span class="swatch">
@@ -80,21 +80,19 @@
 						<button id="redo" type="button" title="Redo">Redo</button>
 						<button id="clear" class="danger" type="button">Clear</button>
 						<button id="export" type="button">PNG</button>
-						<button id="reset-view" type="button" title="Reset view">Reset</button>
+						<button id="fit-view" type="button" title="Fit document in view">Fit</button>
 					</div>
 
 					<nav class="tool-legal" aria-label="Legal">
 						<a href="./about.html">About</a>
-						<a href="./impressum.html">Impressum</a>
-						<a href="./datenschutz.html">Datenschutz</a>
+						<a href="./about.html#impressum">Impressum</a>
+						<a href="./about.html#datenschutz">Datenschutz</a>
 					</nav>
 				</div>
 			</header>
 
 			<main class="stage" id="stage">
-				<div class="viewport" id="viewport">
-					<canvas id="canvas" aria-label="Drawing canvas"></canvas>
-				</div>
+				<canvas id="canvas" aria-label="Drawing canvas"></canvas>
 			</main>
 		</div>
 
@@ -106,8 +104,8 @@
 				</p>
 				<nav aria-label="Further pages">
 					<a href="./about.html">About</a>
-					<a href="./impressum.html">Impressum</a>
-					<a href="./datenschutz.html">Datenschutz</a>
+					<a href="./about.html#impressum">Impressum</a>
+					<a href="./about.html#datenschutz">Datenschutz</a>
 				</nav>
 				<menu>
 					<button type="button" onclick="this.closest('dialog').close()">Close</button>
@@ -125,6 +123,12 @@
 				</menu>
 			</div>
 		</dialog>
+
+		<div id="update-banner" class="update-banner" hidden>
+			<span>Update available</span>
+			<button id="update-now" type="button">Update</button>
+			<button id="update-later" type="button">Later</button>
+		</div>
 
 		<script type="module" src="./js/app.js"></script>
 	</body>

@@ -1,4 +1,4 @@
-import { cp, mkdir, readdir, rm } from "node:fs/promises";
+import { cp, mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -22,8 +22,14 @@ if (icons.status !== 0) {
 	process.exit(icons.status ?? 1);
 }
 
+const buildId = Date.now().toString(36);
+const swPath = path.join(dist, "sw.js");
+let sw = await readFile(swPath, "utf8");
+sw = sw.replace("__BUILD_ID__", buildId);
+await writeFile(swPath, sw, "utf8");
+
 await stripJunk(dist);
-console.log("Build complete: dist/");
+console.log(`Build complete: dist/  (build ${buildId})`);
 
 async function stripJunk(dir) {
 	const entries = await readdir(dir, { withFileTypes: true });

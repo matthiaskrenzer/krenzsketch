@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="de">
 	<head>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
@@ -11,29 +11,306 @@
 	</head>
 	<body>
 		<main>
-			<a class="back" href="./">← Back to canvas</a>
-			<h1>About</h1>
+			<a class="back" href="./">← Back to Canvas</a>
 
-			<p>
-				KrenzSketch is a standalone open-source drawing PWA by Matthias Krenzer.
-			</p>
-			<p>
-				The procedural brush algorithms are partly based on
-				<strong>Harmony</strong> by Mr.doob.
-			</p>
-			<p>
-				Harmony – Procedural Drawing Tool<br />
-				Copyright © 2010 Mr.doob<br />
-				<a href="https://github.com/mrdoob/harmony" rel="noopener noreferrer">github.com/mrdoob/harmony</a>
-			</p>
-			<p>
-				KrenzSketch is licensed under the
-				<strong>GNU GPL v3 or later</strong>.
-			</p>
-			<p>
-				Source code:
-				<a href="https://github.com/matthiaskrenzer/krenzsketch" rel="noopener noreferrer">github.com/matthiaskrenzer/krenzsketch</a>
-			</p>
+			<nav class="jump-nav" aria-label="Page sections">
+				<a href="#about">About</a>
+				<span aria-hidden="true">·</span>
+				<a href="#controls">Controls</a>
+				<span aria-hidden="true">·</span>
+				<a href="#impressum">Impressum</a>
+				<span aria-hidden="true">·</span>
+				<a href="#datenschutz">Datenschutz</a>
+			</nav>
+
+			<section id="about">
+				<h1>About</h1>
+				<p>
+					KrenzSketch is a standalone open-source drawing PWA by Matthias Krenzer.
+				</p>
+				<p>
+					The procedural brush algorithms are partly based on
+					<strong>Harmony</strong> by Mr.doob.
+				</p>
+				<p>
+					Harmony – Procedural Drawing Tool<br />
+					Copyright © 2010 Mr.doob<br />
+					<a href="https://github.com/mrdoob/harmony" rel="noopener noreferrer">github.com/mrdoob/harmony</a>
+				</p>
+				<p>
+					KrenzSketch is licensed under the
+					<strong>GNU GPL v3 or later</strong>.
+				</p>
+				<p>
+					Source code:
+					<a href="https://github.com/matthiaskrenzer/krenzsketch" rel="noopener noreferrer">github.com/matthiaskrenzer/krenzsketch</a>
+				</p>
+			</section>
+
+			<hr />
+
+			<section id="controls">
+				<h1>Controls</h1>
+
+				<h2>Desktop</h2>
+				<ul>
+					<li>Draw — left mouse button</li>
+					<li>Pan — Space + drag</li>
+					<li>Zoom — mouse wheel / trackpad pinch</li>
+				</ul>
+
+				<h2>Touch / iPad / iPhone</h2>
+				<ul>
+					<li>Draw — one finger or Apple Pencil</li>
+					<li>Pan — two-finger drag</li>
+					<li>Zoom — two-finger pinch</li>
+				</ul>
+
+				<h2>Toolbar</h2>
+				<ul>
+					<li>Brush dropdown — select drawing mode</li>
+					<li>Eraser — toggles eraser mode</li>
+					<li>Color / Paper — drawing colour and background colour</li>
+					<li>Size — brush stroke width</li>
+					<li>Undo / Redo — step through drawing history</li>
+					<li>Fit — centres the full document in the viewport</li>
+					<li>PNG — exports the complete drawing</li>
+				</ul>
+
+				<p>Your drawing is saved automatically and restored when you reopen the app.</p>
+			</section>
+
+			<hr />
+
+			<section id="impressum">
+				<h1>Impressum</h1>
+
+				<h2>Angaben gemäß § 5 Digitale-Dienste-Gesetz (DDG)</h2>
+				<p>
+					Matthias Krenzer<br />
+					Spicherer Straße 103<br />
+					67663 Kaiserslautern<br />
+					Deutschland
+				</p>
+
+				<h2>Kontakt</h2>
+				<p>
+					Telefon: <a href="tel:+491728574882">0172 8574882</a><br />
+					E-Mail: <a href="mailto:krenzer@krenztek.de">krenzer@krenztek.de</a>
+				</p>
+
+				<h2>Verbraucherstreitbeilegung</h2>
+				<p>
+					Ich bin weder verpflichtet noch bereit, an Streitbeilegungsverfahren vor einer
+					Verbraucherschlichtungsstelle teilzunehmen.
+				</p>
+			</section>
+
+			<hr />
+
+			<section id="datenschutz">
+				<h1>Datenschutz</h1>
+				<p class="lead">Stand: 18. August 2026</p>
+
+				<h2>1. Verantwortlicher</h2>
+				<p>Verantwortlich für die Verarbeitung personenbezogener Daten ist:</p>
+				<p>
+					Matthias Krenzer<br />
+					Spicherer Straße 103<br />
+					67663 Kaiserslautern<br />
+					Deutschland
+				</p>
+				<p>
+					Telefon: <a href="tel:+491728574882">0172 8574882</a><br />
+					E-Mail: <a href="mailto:krenzer@krenztek.de">krenzer@krenztek.de</a>
+				</p>
+
+				<h2>2. Allgemeine Hinweise</h2>
+				<p>
+					KrenzSketch ist eine eigenständige Zeichenanwendung. Zeichnungen werden nicht in eine Cloud
+					hochgeladen. Es gibt kein Nutzerkonto, kein Kontaktformular und keine Analyse- oder
+					Trackingdienste.
+				</p>
+				<p>
+					Personenbezogene Daten werden nur verarbeitet, soweit dies für die Bereitstellung der
+					Anwendung, zur Bearbeitung von Anfragen oder zur Erfüllung gesetzlicher Pflichten erforderlich
+					ist.
+				</p>
+
+				<h2>3. Bereitstellung und Hosting</h2>
+				<p>
+					Die Anwendung ist für die Bereitstellung als statische Website über Firebase Hosting vorgesehen.
+					Anbieter ist:
+				</p>
+				<p>
+					Google Ireland Limited<br />
+					Gordon House, Barrow Street<br />
+					Dublin 4<br />
+					Irland
+				</p>
+				<p>
+					Mutterunternehmen: Google LLC, 1600 Amphitheatre Parkway, Mountain View, CA 94043, USA.
+				</p>
+				<p>
+					Beim Aufruf werden technisch erforderliche Verbindungsdaten verarbeitet. Dazu können
+					insbesondere gehören:
+				</p>
+				<ul>
+					<li>IP-Adresse</li>
+					<li>Datum und Uhrzeit des Zugriffs</li>
+					<li>aufgerufene Seite oder Datei</li>
+					<li>übertragene Datenmenge</li>
+					<li>Browsertyp und Browserversion</li>
+					<li>Betriebssystem</li>
+					<li>zuvor besuchte Seite, sofern vom Browser übermittelt</li>
+				</ul>
+				<p>
+					Die Verarbeitung ist erforderlich, um die Anwendung auszuliefern, ihre Stabilität und Sicherheit
+					zu gewährleisten sowie missbräuchliche Zugriffe erkennen und abwehren zu können.
+				</p>
+				<p>
+					Rechtsgrundlage ist Art. 6 Abs. 1 Buchstabe f DSGVO. Das berechtigte Interesse liegt in der
+					sicheren, zuverlässigen Bereitstellung dieser Anwendung.
+				</p>
+				<p>
+					Google kann Daten auch außerhalb der Europäischen Union und des Europäischen Wirtschaftsraums,
+					insbesondere in den USA, verarbeiten. Google ist nach dem EU-US Data Privacy Framework
+					zertifiziert. Ergänzend stellt Google Standardvertragsklauseln bereit.
+				</p>
+				<p>Weitere Informationen:</p>
+				<ul>
+					<li>
+						<a href="https://firebase.google.com/support/privacy" rel="noopener noreferrer"
+							>https://firebase.google.com/support/privacy</a>
+					</li>
+					<li>
+						<a href="https://policies.google.com/privacy" rel="noopener noreferrer"
+							>https://policies.google.com/privacy</a>
+					</li>
+				</ul>
+				<p>
+					Die Speicherdauer richtet sich nach den technischen und sicherheitsbezogenen Erfordernissen des
+					Hostinganbieters. Daten werden gelöscht oder anonymisiert, sobald sie für diese Zwecke nicht
+					mehr erforderlich sind und keine gesetzlichen Aufbewahrungspflichten entgegenstehen.
+				</p>
+				<p>
+					Solange die Anwendung noch nicht öffentlich über Firebase Hosting erreichbar ist, findet diese
+					Hosting-Verarbeitung nicht statt. Nach einem späteren Go-Live gilt die dann tatsächlich
+					eingesetzte Konfiguration.
+				</p>
+
+				<h2>4. Service Worker und Offline-Nutzung</h2>
+				<p>
+					KrenzSketch verwendet einen Service Worker, damit die Anwendung nach dem ersten Aufruf auch
+					offline nutzbar und installierbar ist.
+				</p>
+				<p>
+					Dafür werden statische Anwendungsdateien (HTML, CSS, JavaScript, Icons, Manifest) im Cache des
+					Browsers auf Ihrem Endgerät gespeichert. Es werden keine Zeichnungen an einen Server
+					übertragen.
+				</p>
+				<p>
+					Rechtsgrundlage ist § 25 Abs. 2 Nr. 2 TDDDG in Verbindung mit Art. 6 Abs. 1 Buchstabe f DSGVO.
+					Die Speicherung ist für den ausdrücklich gewünschten Offline- und Installationsbetrieb
+					erforderlich.
+				</p>
+				<p>
+					Der Cache kann über die Browsereinstellungen oder durch Deinstallieren der Anwendung gelöscht
+					werden.
+				</p>
+
+				<h2>5. Lokale Speicherung auf dem Gerät</h2>
+				<p>
+					Die Anwendung speichert auf Ihrem Gerät ausgewählte Werkzeugeinstellungen (Zeichenmodus, Farben,
+					Strichstärke) im Local Storage des Browsers.
+				</p>
+				<p>
+					Die aktuelle Zeichnung wird zusätzlich lokal in der IndexedDB des Browsers gespeichert, damit sie
+					nach einem Neustart der Anwendung oder nach dem Wechsel zur About-Seite
+					wiederhergestellt werden kann. Es wird immer nur dieses eine Arbeitsbild vorgehalten. Die
+					Zeichnung wird entfernt, wenn Sie sie in der Anwendung bewusst löschen oder die Website-Daten
+					im Browser löschen.
+				</p>
+				<p>
+					Diese Daten verlassen Ihr Gerät nicht. Rechtsgrundlage ist § 25 Abs. 2 Nr. 2 TDDDG. Die Angaben
+					können durch Löschen der Website-Daten im Browser entfernt werden.
+				</p>
+
+				<h2>6. Export als PNG</h2>
+				<p>
+					Ein Export erzeugt eine Bilddatei lokal auf Ihrem Gerät. Es findet keine Übermittlung an einen
+					Server statt.
+				</p>
+
+				<h2>7. Kontaktaufnahme per E-Mail oder Telefon</h2>
+				<p>
+					Wenn Sie mich per E-Mail oder Telefon kontaktieren, verarbeite ich die von Ihnen mitgeteilten
+					Angaben, um Ihre Anfrage zu bearbeiten.
+				</p>
+				<p>
+					Bezieht sich die Anfrage auf die Anbahnung oder Durchführung eines Vertrags, erfolgt die
+					Verarbeitung auf Grundlage von Art. 6 Abs. 1 Buchstabe b DSGVO. Bei sonstigen Anfragen erfolgt
+					sie auf Grundlage von Art. 6 Abs. 1 Buchstabe f DSGVO.
+				</p>
+				<p>
+					Die Daten werden gelöscht, sobald die Anfrage abschließend bearbeitet ist und keine gesetzlichen
+					Aufbewahrungspflichten entgegenstehen.
+				</p>
+
+				<h2>8. Cookies, Schriftarten und Tracker</h2>
+				<p>KrenzSketch setzt keine Cookies.</p>
+				<p>
+					Es werden keine Analyse-, Werbe- oder Social-Media-Dienste eingebunden. Schriftarten kommen vom
+					Betriebssystem, nicht von einem externen Schriftdienst.
+				</p>
+				<p>Ein Einwilligungsbanner ist nach dem derzeitigen Funktionsumfang nicht erforderlich.</p>
+
+				<h2>9. Externe Links</h2>
+				<p>
+					Die About-Seite enthält Links zum Harmony-Repository und zum KrenzSketch-Repository auf GitHub.
+					Beim Aufruf dieser Links verlassen Sie diese Anwendung. Für die anschließende
+					Datenverarbeitung ist GitHub bzw. der jeweilige Anbieter verantwortlich.
+				</p>
+
+				<h2>10. Ihre Rechte</h2>
+				<p>Sie haben nach Maßgabe der gesetzlichen Voraussetzungen insbesondere das Recht:</p>
+				<ul>
+					<li>Auskunft über die zu Ihrer Person verarbeiteten Daten zu erhalten</li>
+					<li>unrichtige Daten berichtigen zu lassen</li>
+					<li>die Löschung oder Einschränkung der Verarbeitung zu verlangen</li>
+					<li>der Verarbeitung aus Gründen Ihrer besonderen Situation zu widersprechen</li>
+					<li>bereitgestellte Daten in einem übertragbaren Format zu erhalten</li>
+				</ul>
+				<p>
+					Zur Ausübung Ihrer Rechte genügt eine Nachricht an
+					<a href="mailto:krenzer@krenztek.de">krenzer@krenztek.de</a>.
+				</p>
+
+				<h2>11. Beschwerderecht</h2>
+				<p>
+					Sie haben das Recht, sich bei einer Datenschutzaufsichtsbehörde zu beschweren. Die für
+					Rheinland-Pfalz zuständige Aufsichtsbehörde ist:
+				</p>
+				<p>
+					Der Landesbeauftragte für den Datenschutz und die Informationsfreiheit Rheinland-Pfalz<br />
+					Hintere Bleiche 34<br />
+					55116 Mainz
+				</p>
+				<p>
+					<a href="https://www.datenschutz.rlp.de/" rel="noopener noreferrer">https://www.datenschutz.rlp.de/</a>
+				</p>
+
+				<h2>12. Sicherheit und Änderungen</h2>
+				<p>
+					Die ausgelieferte Website verwendet eine verschlüsselte HTTPS-Verbindung. Trotz angemessener
+					Maßnahmen kann bei Datenübertragungen im Internet kein vollständiger Schutz vor allen Risiken
+					garantiert werden.
+				</p>
+				<p>
+					Diese Datenschutzerklärung wird angepasst, wenn sich Hosting, Funktionen oder rechtliche
+					Anforderungen ändern. Maßgeblich ist die jeweils veröffentlichte Fassung.
+				</p>
+			</section>
 		</main>
 	</body>
 </html>
