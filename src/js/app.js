@@ -119,7 +119,8 @@ function loadSettings() {
 		const raw = localStorage.getItem(SETTINGS_KEY);
 		if (!raw) return;
 		const data = JSON.parse(raw);
-		if (BRUSHES.some((item) => item.id === data.mode)) state.mode = data.mode;
+		if (data.mode === "brush" || data.mode === "airbrush") state.mode = "airbrush";
+		else if (BRUSHES.some((item) => item.id === data.mode)) state.mode = data.mode;
 		if (Array.isArray(data.color) && data.color.length === 3) state.color = data.color.map((n) => clamp(n | 0, 0, 255));
 		if (Array.isArray(data.background) && data.background.length === 3) {
 			state.background = data.background.map((n) => clamp(n | 0, 0, 255));
@@ -168,22 +169,14 @@ function syncToolUi() {
 	canvas.classList.toggle("is-erasing", state.erasing);
 }
 
-const BRUSH_SIZE_FACTOR = 2.6;
-const BRUSH_STAMP_INTERVAL_MS = 80;
+const AIRBRUSH_FRAME_MS = 32;
 
-function currentStyle(pressure) {
-	const isBrushMode = state.mode === "brush" && !state.erasing;
-	const size = state.size * (isBrushMode ? BRUSH_SIZE_FACTOR : 1);
-	// Size-dependent transparency to avoid "marker" look on the first pass.
-	// Repeated passes still accumulate visually.
-	// Reduced alpha to keep the first pass visibly "ink/airbrush-light",
-	// and let density build up mainly through repeated overdraw.
-	const opacity = isBrushMode ? clamp(0.045 + state.size * 0.003, 0.045, 0.07) : 1;
+function currentStyle(pressure, densityScale = 1) {
 	return {
 		color: state.color,
-		size,
+		size: state.size,
 		pressure,
-		opacity,
+		densityScale,
 	};
 }
 
@@ -286,10 +279,6 @@ async function restoreSnapshot(snapshot) {
 
 function resetBrush() {
 	const opts = { displayCanvas: canvas };
-	if (state.mode === "brush" && !state.erasing) {
-		// Brush stays lighter than a marker; final alpha is also size-adjusted in currentStyle().
-		opts.alphaScale = 0.18;
-	}
 	brush = state.erasing ? createEraser(masterCtx) : createBrush(state.mode, masterCtx, opts);
 }
 
@@ -545,61 +534,77 @@ function startDraw(event) {
 	const { x, y } = canvasPoint(event);
 	brush.strokeStart(x, y);
 
-	// Brush continuous stamping state
-	brushAnim.active = state.mode === "brush";
-	brushAnim.pointerX = x;
-	brushAnim.pointerY = y;
-	brushAnim.pointerPressure = pointerPressure(event);
-	brushAnim.drawX = x;
-	brushAnim.drawY = y;
-	brushAnim.lastStampAt = 0;
-	if (brushAnim.active) scheduleBrushTick();
+	airbrushAnim.active = state.mode === "airbrush";
+	airbrushAnim.pointerX = x;
+	airbrushAnim.pointerY = y;
+	airbrushAnim.pointerPressure = pointerPressure(event);
+	airbrushAnim.drawX = x;
+	airbrushAnim.drawY = y;
+	if (airbrushAnim.active) {
+		airbrushAnim.lastFrameAt = performance.now();
+		brush.stroke(x, y, currentStyle(airbrushAnim.pointerPressure));
+		presentMaster();
+		scheduleAirbrushTick();
+	}
 }
 
-const brushAnim = {
+const airbrushAnim = {
 	active: false,
 	pointerX: 0,
 	pointerY: 0,
 	pointerPressure: 1,
 	drawX: 0,
 	drawY: 0,
-	lastStampAt: 0,
-	timer: 0,
+	rafId: 0,
+	lastFrameAt: 0,
 };
 
-function scheduleBrushTick() {
-	if (brushAnim.timer) return;
-	brushAnim.timer = window.setTimeout(() => {
-		brushAnim.timer = 0;
-		brushTick();
-	}, BRUSH_STAMP_INTERVAL_MS);
+function scheduleAirbrushTick() {
+	if (airbrushAnim.rafId) return;
+	airbrushAnim.rafId = requestAnimationFrame(airbrushFrame);
 }
 
-function brushTick(now = performance.now()) {
-	if (!state.drawing || !brushAnim.active || state.mode !== "brush") return;
+function airbrushFrame(now) {
+	airbrushAnim.rafId = 0;
+	if (!airbrushAnim.active || !state.drawing || state.mode !== "airbrush") return;
 
-	const x2 = brushAnim.pointerX;
-	const y2 = brushAnim.pointerY;
-	const x1 = brushAnim.drawX;
-	const y1 = brushAnim.drawY;
+	if (now - airbrushAnim.lastFrameAt >= AIRBRUSH_FRAME_MS) {
+		airbrushAnim.lastFrameAt = now;
+		airbrushSprayStep(false);
+	}
+
+	scheduleAirbrushTick();
+}
+
+function stopAirbrushLoop() {
+	airbrushAnim.active = false;
+	if (airbrushAnim.rafId) {
+		cancelAnimationFrame(airbrushAnim.rafId);
+		airbrushAnim.rafId = 0;
+	}
+}
+
+function airbrushSprayStep(reschedule) {
+	if (!state.drawing || state.mode !== "airbrush") return;
+
+	const x2 = airbrushAnim.pointerX;
+	const y2 = airbrushAnim.pointerY;
+	const x1 = airbrushAnim.drawX;
+	const y1 = airbrushAnim.drawY;
 	const dx = x2 - x1;
 	const dy = y2 - y1;
 	const dist = Math.sqrt(dx * dx + dy * dy);
 
-	const style = currentStyle(brushAnim.pointerPressure);
-	// Step spacing ensures a continuous broad brush even during fast movement.
-	// Keep brush strokes continuous while limiting stamp overlap (less "circle chain").
-	const stepDist = Math.max(0.8, style.size * 0.4);
+	const speedFactor = clamp(1 / (1 + dist * 0.12), 0.25, 1);
+	const style = currentStyle(airbrushAnim.pointerPressure, speedFactor);
+	const stepDist = Math.max(0.5, state.size * 0.35);
 
 	let wrote = false;
 	if (dist >= stepDist) {
-		// Limit interpolated stamps per tick to avoid dense overlap.
-		const steps = Math.min(16, Math.ceil(dist / stepDist));
+		const steps = Math.min(30, Math.ceil(dist / stepDist));
 		for (let i = 1; i <= steps; i++) {
 			const t = i / steps;
-			const xi = x1 + dx * t;
-			const yi = y1 + dy * t;
-			brush.stroke(xi, yi, style);
+			brush.stroke(x1 + dx * t, y1 + dy * t, style);
 			wrote = true;
 		}
 	} else {
@@ -609,12 +614,11 @@ function brushTick(now = performance.now()) {
 
 	if (wrote) {
 		presentMaster();
-		brushAnim.drawX = x2;
-		brushAnim.drawY = y2;
-		brushAnim.lastStampAt = now;
+		airbrushAnim.drawX = x2;
+		airbrushAnim.drawY = y2;
 	}
 
-	scheduleBrushTick();
+	if (reschedule && airbrushAnim.active) scheduleAirbrushTick();
 }
 
 function onPointerDown(event) {
@@ -638,13 +642,14 @@ function onPointerMove(event) {
 	const events = typeof event.getCoalescedEvents === "function" ? event.getCoalescedEvents() : [event];
 	const list = events.length ? events : [event];
 
-	if (state.mode === "brush") {
-		// For brush we stamp continuously in RAF. Pointermove only updates target.
-		const ev = list[list.length - 1];
-		const { x, y } = canvasPoint(ev);
-		brushAnim.pointerX = x;
-		brushAnim.pointerY = y;
-		brushAnim.pointerPressure = pointerPressure(ev);
+	if (state.mode === "airbrush") {
+		for (const ev of list) {
+			const { x, y } = canvasPoint(ev);
+			airbrushAnim.pointerX = x;
+			airbrushAnim.pointerY = y;
+			airbrushAnim.pointerPressure = pointerPressure(ev);
+			airbrushSprayStep(false);
+		}
 		return;
 	}
 
@@ -659,7 +664,15 @@ function onPointerUp(event) {
 	if (!state.drawing || event.pointerId !== state.pointerId) return;
 	event.preventDefault();
 
-	brushAnim.active = false;
+	if (state.mode === "airbrush" && airbrushAnim.active) {
+		const { x, y } = canvasPoint(event);
+		airbrushAnim.pointerX = x;
+		airbrushAnim.pointerY = y;
+		airbrushAnim.pointerPressure = pointerPressure(event);
+		airbrushSprayStep(false);
+	}
+
+	stopAirbrushLoop();
 	brush.strokeEnd();
 	state.drawing = false;
 	state.pointerId = null;
@@ -690,7 +703,7 @@ function bindUi() {
 
 	ui.eraser.addEventListener("click", () => {
 		state.erasing = !state.erasing;
-		brushAnim.active = state.mode === "brush";
+		stopAirbrushLoop();
 		resetBrush();
 		syncToolUi();
 		collapseToolsIfCompact();
@@ -768,10 +781,11 @@ function bindUi() {
 }
 
 function bindCanvas() {
-	canvas.addEventListener("pointerdown", onPointerDown);
-	canvas.addEventListener("pointermove", onPointerMove);
-	canvas.addEventListener("pointerup", onPointerUp);
-	canvas.addEventListener("pointercancel", onPointerUp);
+	const pointerOpts = { passive: false };
+	canvas.addEventListener("pointerdown", onPointerDown, pointerOpts);
+	canvas.addEventListener("pointermove", onPointerMove, pointerOpts);
+	canvas.addEventListener("pointerup", onPointerUp, pointerOpts);
+	canvas.addEventListener("pointercancel", onPointerUp, pointerOpts);
 	canvas.addEventListener("contextmenu", (event) => event.preventDefault());
 }
 

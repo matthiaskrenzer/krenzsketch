@@ -7,7 +7,8 @@ Standalone, installable drawing PWA by Matthias Krenzer.
 ## Features
 
 - Adaptive fullscreen canvas — fills available screen space on any device
-- Procedural brushes: Sketchy, Shaded, Fur, Web, Line, Chrome, Squares, Circles, Triangles (Brush mode tuned to feel lighter and less marker-like)
+- Procedural drawing modes: Sketchy, Shaded, Fur, Web, **Airbrush**, Line, Chrome, Squares, Circles, Triangles
+- **Airbrush** — soft particle spray (many semi-transparent dots; builds up with slow movement, pointer hold, or repeated passes)
 - Procedural eraser
 - Drawing color and paper color pickers
 - Adjustable stroke size with pen pressure support
@@ -36,7 +37,7 @@ The procedural brush algorithms are derived from **Harmony** by Mr.doob:
 
 The original Harmony license is preserved in [`third_party/harmony/LICENSE`](third_party/harmony/LICENSE).
 
-KrenzSketch reimplements the neighbour-point geometry rules in [`src/js/brushes.js`](src/js/brushes.js). The Harmony UI, color wheel, and application shell were not used.
+KrenzSketch reimplements the neighbour-point geometry rules in [`src/js/brushes.js`](src/js/brushes.js). The Harmony UI, color wheel, and application shell were not used. The **Airbrush** mode is original KrenzSketch code (particle spray, not derived from Harmony).
 
 ## License
 

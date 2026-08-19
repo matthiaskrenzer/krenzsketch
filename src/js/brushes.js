@@ -287,21 +287,12 @@ class SimpleBrush {
 		this.points.push({ x, y });
 		this.lastStyle = style;
 
-		// Draw incremental line segments directly onto the master canvas.
-		// This ensures the Brush tool can keep building intensity even if the
-		// pointer doesn't move (ticks keep calling stroke()).
 		if (this.points.length >= 2) {
 			const prev = this.points[this.points.length - 2];
 			const curr = this.points[this.points.length - 1];
 			const { ctx } = this;
 			applyLine(ctx, style.size);
-			// Brush-mode only: reduce "circle chain" look from round caps by using flat caps.
-			// (Other modes keep the previous caps behavior.)
-			if (typeof style.opacity === "number" && style.opacity !== 1) {
-				ctx.lineCap = "butt";
-			}
-			const alpha = (style.opacity ?? this.alphaScale) * style.pressure;
-			ctx.strokeStyle = rgba(style.color, alpha);
+			ctx.strokeStyle = rgba(style.color, this.alphaScale * style.pressure);
 			ctx.beginPath();
 			ctx.moveTo(prev.x, prev.y);
 			ctx.lineTo(curr.x, curr.y);
@@ -314,6 +305,54 @@ class SimpleBrush {
 		this.lastStyle = null;
 		if (this.overlay.parentNode) this.overlay.parentNode.removeChild(this.overlay);
 	}
+}
+
+/**
+ * Airbrush: soft particle spray with radial falloff. Many small semi-transparent
+ * dots accumulate gradually; pointer-hold keeps spraying via app.js tick loop.
+ */
+class AirbrushBrush {
+	constructor(ctx) {
+		this.ctx = ctx;
+	}
+
+	reset() {}
+
+	strokeStart() {}
+
+	stroke(x, y, style) {
+		this.spray(x, y, style);
+	}
+
+	spray(x, y, style) {
+		const { ctx } = this;
+		const radius = Math.max(3, style.size * 3.2);
+		const pressure = style.pressure ?? 1;
+		const density = style.densityScale ?? 1;
+		const count = Math.max(12, Math.round((12 + style.size * 3.5) * (0.75 + pressure * 0.35) * density));
+
+		for (let i = 0; i < count; i++) {
+			const u = Math.random();
+			const r = Math.sqrt(u) * radius;
+			const angle = Math.random() * Math.PI * 2;
+			const px = x + Math.cos(angle) * r;
+			const py = y + Math.sin(angle) * r;
+
+			const centerWeight = 1 - u;
+			const baseAlpha = 0.055 + style.size * 0.006;
+			const alpha = baseAlpha * (0.3 + 0.7 * centerWeight * centerWeight) * (0.85 + pressure * 0.2);
+
+			// Keep dots large enough to render on high-DPR mobile screens.
+			const dotR = Math.max(0.55, style.size * 0.11 * (0.45 + Math.random() * 0.55));
+
+			ctx.fillStyle = rgba(style.color, Math.min(alpha, 0.16));
+			ctx.beginPath();
+			ctx.arc(px, py, dotR, 0, Math.PI * 2);
+			ctx.fill();
+		}
+	}
+
+	strokeEnd() {}
 }
 
 /**
@@ -514,7 +553,7 @@ export const BRUSHES = [
 	{ id: "shaded", label: "Shaded", create: (ctx) => new ShadedBrush(ctx) },
 	{ id: "fur", label: "Fur", create: (ctx) => new FurBrush(ctx) },
 	{ id: "web", label: "Web", create: (ctx) => new WebBrush(ctx) },
-	{ id: "brush", label: "Brush", create: (ctx, opts) => new SimpleBrush(ctx, opts) },
+	{ id: "airbrush", label: "Airbrush", create: (ctx) => new AirbrushBrush(ctx) },
 	{ id: "simple", label: "Line", create: (ctx, opts) => new SimpleBrush(ctx, opts) },
 	{ id: "chrome", label: "Chrome", create: (ctx) => new ChromeBrush(ctx) },
 	{ id: "squares", label: "Squares", create: (ctx) => new SquaresBrush(ctx) },
