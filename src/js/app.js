@@ -64,6 +64,9 @@ let saveQueued = false;
 let saveGeneration = 0;
 let persistEnabled = false;
 let lastHistoryBlob = null;
+let swRegistration = null;
+let swUpdateShownForScript = "";
+let swReloading = false;
 
 let historyChain = Promise.resolve();
 function enqueueHistory(fn) {
@@ -790,66 +793,82 @@ function bindKeys() {
 async function registerWorker() {
 	if (!("serviceWorker" in navigator)) return;
 	try {
-		const isLocalDev = location.hostname === "127.0.0.1" || location.hostname === "localhost";
-		const autoSkipKey = "ks_auto_skip_sw";
-
 		const reg = await navigator.serviceWorker.register("./sw.js", { updateViaCache: "none" });
+		swRegistration = reg;
 
-		function onNewWorker(worker) {
-			if (worker.state !== "installed") {
-				worker.addEventListener("statechange", () => {
-					if (worker.state === "installed") onNewWorker(worker);
-				});
-				return;
-			}
-
-			// Local dev: force the new SW to become active immediately,
-			// so you see Brush tuning changes without manual "Update now".
-			if (isLocalDev && sessionStorage.getItem(autoSkipKey) !== "1") {
-				sessionStorage.setItem(autoSkipKey, "1");
-				worker.postMessage("skipWaiting");
-				window.location.reload();
-				return;
-			}
-
-			showUpdateBanner(worker);
-		}
-
-		if (reg.waiting) onNewWorker(reg.waiting);
-		reg.addEventListener("updatefound", () => {
-			if (reg.installing) onNewWorker(reg.installing);
+		navigator.serviceWorker.addEventListener("controllerchange", () => {
+			if (swReloading) return;
+			swReloading = true;
+			window.location.reload();
 		});
 
-		setInterval(() => { reg.update().catch(() => {}); }, 10 * 60 * 1000);
+		const watchWorker = (worker) => {
+			if (!worker) return;
+			worker.addEventListener("statechange", () => {
+				if (worker.state === "installed") {
+					maybeShowUpdate(reg, worker);
+				}
+			});
+		};
+
+		if (reg.waiting) maybeShowUpdate(reg, reg.waiting);
+		if (reg.installing) watchWorker(reg.installing);
+		reg.addEventListener("updatefound", () => {
+			if (reg.installing) watchWorker(reg.installing);
+		});
+
+		await reg.update().catch(() => {});
 	} catch (err) {
 		console.warn("Service Worker not registered:", err);
 	}
 }
 
-function showUpdateBanner(worker) {
+function workerScriptKey(worker) {
+	return worker?.scriptURL || "";
+}
+
+function maybeShowUpdate(reg, worker) {
+	if (!worker) return;
+	if (!navigator.serviceWorker.controller) return;
+	if (reg.waiting && worker !== reg.waiting) return;
+	const key = workerScriptKey(worker);
+	if (key && swUpdateShownForScript === key) return;
+	swUpdateShownForScript = key;
+	showUpdateBanner(reg, worker);
+}
+
+function showUpdateBanner(reg, worker) {
 	const banner = document.getElementById("update-banner");
 	const btnNow = document.getElementById("update-now");
 	const btnLater = document.getElementById("update-later");
 	if (!banner || !btnNow || !btnLater) return;
 
 	banner.hidden = false;
+	btnNow.disabled = false;
+	btnNow.textContent = "Update";
 
 	btnLater.onclick = () => { banner.hidden = true; };
 
 	btnNow.onclick = async () => {
 		btnNow.disabled = true;
 		btnNow.textContent = "Saving…";
-		saveQueued = true;
-		await flushSave();
-		worker.postMessage("skipWaiting");
+		try {
+			saveQueued = true;
+			await flushSave();
+			const waiting = reg.waiting || worker;
+			if (!waiting) {
+				btnNow.textContent = "Update";
+				btnNow.disabled = false;
+				return;
+			}
+			btnNow.textContent = "Updating…";
+			waiting.postMessage("SKIP_WAITING");
+		} catch (err) {
+			console.warn("Could not save before update:", err);
+			btnNow.textContent = "Update";
+			btnNow.disabled = false;
+		}
 	};
-
-	let reloading = false;
-	navigator.serviceWorker.addEventListener("controllerchange", () => {
-		if (reloading) return;
-		reloading = true;
-		window.location.reload();
-	});
 }
 
 let resizeRaf = 0;
@@ -883,6 +902,9 @@ async function init() {
 		if (document.visibilityState === "hidden" && persistEnabled) {
 			saveQueued = true;
 			void flushSave();
+		}
+		if (document.visibilityState === "visible" && swRegistration) {
+			void swRegistration.update().catch(() => {});
 		}
 	});
 

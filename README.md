@@ -7,12 +7,13 @@ Standalone, installable drawing PWA by Matthias Krenzer.
 ## Features
 
 - Adaptive fullscreen canvas — fills available screen space on any device
-- Procedural brushes: Sketchy, Shaded, Fur, Web, Line, Chrome, Squares, Circles, Triangles
+- Procedural brushes: Sketchy, Shaded, Fur, Web, Line, Chrome, Squares, Circles, Triangles (Brush mode tuned to feel lighter and less marker-like)
 - Procedural eraser
 - Drawing color and paper color pickers
 - Adjustable stroke size with pen pressure support
 - Undo / Redo (full session history)
 - PNG export (cropped to drawn area)
+- Share via Web Share API (native share sheet, when supported)
 - Local autosave and persistence (IndexedDB)
 - Clear with confirmation
 - Installable offline PWA with controlled update mechanism

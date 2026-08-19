@@ -39,7 +39,7 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("message", (event) => {
-	if (event.data === "skipWaiting") {
+	if (event.data === "SKIP_WAITING" || event.data === "skipWaiting") {
 		self.skipWaiting();
 	}
 });
@@ -49,11 +49,15 @@ self.addEventListener("fetch", (event) => {
 
 	const url = new URL(event.request.url);
 	if (url.origin !== self.location.origin) return;
+	if (url.pathname === "/sw.js" || url.pathname.endsWith("/sw.js")) return;
 
-	event.respondWith(
-		caches.match(event.request).then((cached) => {
-			if (cached) return cached;
-			return fetch(event.request)
+	const isNavigation = event.request.mode === "navigate"
+		|| event.request.destination === "document"
+		|| (event.request.headers.get("accept") || "").includes("text/html");
+
+	if (isNavigation) {
+		event.respondWith(
+			fetch(event.request)
 				.then((response) => {
 					if (!response || response.status !== 200 || response.type !== "basic") {
 						return response;
@@ -62,7 +66,25 @@ self.addEventListener("fetch", (event) => {
 					caches.open(CACHE).then((cache) => cache.put(event.request, copy));
 					return response;
 				})
-				.catch(() => caches.match("./index.html"));
+				.catch(async () => {
+					const cached = await caches.match(event.request);
+					return cached || caches.match("./index.html");
+				}),
+		);
+		return;
+	}
+
+	event.respondWith(
+		caches.match(event.request).then((cached) => {
+			if (cached) return cached;
+			return fetch(event.request).then((response) => {
+				if (!response || response.status !== 200 || response.type !== "basic") {
+					return response;
+				}
+				const copy = response.clone();
+				caches.open(CACHE).then((cache) => cache.put(event.request, copy));
+				return response;
+			});
 		}),
 	);
 });

@@ -45,8 +45,10 @@ const server = http.createServer((req, res) => {
 		const ext = path.extname(filePath);
 		const headers = { "Content-Type": types[ext] ?? "application/octet-stream" };
 		if (path.basename(filePath) === "sw.js") {
-			headers["Cache-Control"] = "no-cache";
+			headers["Cache-Control"] = "no-cache, no-store, must-revalidate";
 			headers["Service-Worker-Allowed"] = "/";
+		} else if (ext === ".html") {
+			headers["Cache-Control"] = "no-cache, must-revalidate";
 		}
 		res.writeHead(200, headers).end(data);
 	});
