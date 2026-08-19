@@ -254,9 +254,11 @@ class ChromeBrush extends NeighbourBrush {
  * Original: js/brushes/simple.js
  */
 class SimpleBrush {
-	constructor(ctx, { displayCanvas } = {}) {
+	constructor(ctx, { displayCanvas, continuousToMaster = false, alphaScale = 0.5 } = {}) {
 		this.ctx = ctx;
 		this.displayCanvas = displayCanvas || ctx.canvas;
+		this.continuousToMaster = continuousToMaster;
+		this.alphaScale = alphaScale;
 		this.points = [];
 		this.overlay = document.createElement("canvas");
 		this.overlayCtx = this.overlay.getContext("2d");
@@ -284,33 +286,30 @@ class SimpleBrush {
 	stroke(x, y, style) {
 		this.points.push({ x, y });
 		this.lastStyle = style;
-		const oc = this.overlayCtx;
-		oc.save();
-		oc.setTransform(1, 0, 0, 1, 0, 0);
-		oc.clearRect(0, 0, this.overlay.width, this.overlay.height);
-		oc.restore();
-		applyLine(oc, style.size);
-		oc.strokeStyle = rgba(style.color, 0.5 * style.pressure);
-		oc.beginPath();
-		oc.moveTo(this.points[0].x, this.points[0].y);
-		for (let i = 1; i < this.points.length; i++) {
-			oc.lineTo(this.points[i].x, this.points[i].y);
+
+		// Draw incremental line segments directly onto the master canvas.
+		// This ensures the Brush tool can keep building intensity even if the
+		// pointer doesn't move (ticks keep calling stroke()).
+		if (this.points.length >= 2) {
+			const prev = this.points[this.points.length - 2];
+			const curr = this.points[this.points.length - 1];
+			const { ctx } = this;
+			applyLine(ctx, style.size);
+			// Brush-mode only: reduce "circle chain" look from round caps by using flat caps.
+			// (Other modes keep the previous caps behavior.)
+			if (typeof style.opacity === "number" && style.opacity !== 1) {
+				ctx.lineCap = "butt";
+			}
+			const alpha = (style.opacity ?? this.alphaScale) * style.pressure;
+			ctx.strokeStyle = rgba(style.color, alpha);
+			ctx.beginPath();
+			ctx.moveTo(prev.x, prev.y);
+			ctx.lineTo(curr.x, curr.y);
+			ctx.stroke();
 		}
-		oc.stroke();
 	}
 
 	strokeEnd() {
-		if (this.points.length > 1 && this.lastStyle) {
-			const { ctx } = this;
-			applyLine(ctx, this.lastStyle.size);
-			ctx.strokeStyle = rgba(this.lastStyle.color, 0.5 * this.lastStyle.pressure);
-			ctx.beginPath();
-			ctx.moveTo(this.points[0].x, this.points[0].y);
-			for (let i = 1; i < this.points.length; i++) {
-				ctx.lineTo(this.points[i].x, this.points[i].y);
-			}
-			ctx.stroke();
-		}
 		this.points = [];
 		this.lastStyle = null;
 		if (this.overlay.parentNode) this.overlay.parentNode.removeChild(this.overlay);
@@ -515,6 +514,7 @@ export const BRUSHES = [
 	{ id: "shaded", label: "Shaded", create: (ctx) => new ShadedBrush(ctx) },
 	{ id: "fur", label: "Fur", create: (ctx) => new FurBrush(ctx) },
 	{ id: "web", label: "Web", create: (ctx) => new WebBrush(ctx) },
+	{ id: "brush", label: "Brush", create: (ctx, opts) => new SimpleBrush(ctx, opts) },
 	{ id: "simple", label: "Line", create: (ctx, opts) => new SimpleBrush(ctx, opts) },
 	{ id: "chrome", label: "Chrome", create: (ctx) => new ChromeBrush(ctx) },
 	{ id: "squares", label: "Squares", create: (ctx) => new SquaresBrush(ctx) },

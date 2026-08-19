@@ -37,6 +37,7 @@ const ui = {
 	redo: document.getElementById("redo"),
 	clear: document.getElementById("clear"),
 	exportBtn: document.getElementById("export"),
+	shareBtn: document.getElementById("share"),
 	menuBtn: document.getElementById("menu-btn"),
 	menu: document.getElementById("menu-dialog"),
 	confirm: document.getElementById("confirm-dialog"),
@@ -155,20 +156,31 @@ function syncUi() {
 	ui.sizeValue.textContent = String(state.size);
 	applyPaper();
 	updateHistoryButtons();
-	syncEraseUi();
+	syncToolUi();
 }
 
-function syncEraseUi() {
+function syncToolUi() {
 	ui.eraser.setAttribute("aria-pressed", state.erasing ? "true" : "false");
 	ui.eraser.classList.toggle("is-active", state.erasing);
 	canvas.classList.toggle("is-erasing", state.erasing);
 }
 
+const BRUSH_SIZE_FACTOR = 2.6;
+const BRUSH_STAMP_INTERVAL_MS = 80;
+
 function currentStyle(pressure) {
+	const isBrushMode = state.mode === "brush" && !state.erasing;
+	const size = state.size * (isBrushMode ? BRUSH_SIZE_FACTOR : 1);
+	// Size-dependent transparency to avoid "marker" look on the first pass.
+	// Repeated passes still accumulate visually.
+	// Reduced alpha to keep the first pass visibly "ink/airbrush-light",
+	// and let density build up mainly through repeated overdraw.
+	const opacity = isBrushMode ? clamp(0.045 + state.size * 0.003, 0.045, 0.07) : 1;
 	return {
 		color: state.color,
-		size: state.size,
+		size,
 		pressure,
+		opacity,
 	};
 }
 
@@ -271,6 +283,10 @@ async function restoreSnapshot(snapshot) {
 
 function resetBrush() {
 	const opts = { displayCanvas: canvas };
+	if (state.mode === "brush" && !state.erasing) {
+		// Brush stays lighter than a marker; final alpha is also size-adjusted in currentStyle().
+		opts.alphaScale = 0.18;
+	}
 	brush = state.erasing ? createEraser(masterCtx) : createBrush(state.mode, masterCtx, opts);
 }
 
@@ -352,11 +368,11 @@ function getContentBounds() {
 	};
 }
 
-function exportPng() {
+async function createPngBlob() {
 	const bounds = getContentBounds();
 	if (!bounds) {
 		console.log("Nothing to export");
-		return;
+		return null;
 	}
 	const out = document.createElement("canvas");
 	out.width = bounds.w;
@@ -369,17 +385,70 @@ function exportPng() {
 		bounds.x * dpr, bounds.y * dpr, bounds.w * dpr, bounds.h * dpr,
 		0, 0, bounds.w, bounds.h,
 	);
-	out.toBlob((blob) => {
-		if (!blob) return;
-		const url = URL.createObjectURL(blob);
-		const link = document.createElement("a");
-		link.href = url;
-		link.download = "krenzsketch.png";
-		document.body.appendChild(link);
-		link.click();
-		link.remove();
-		URL.revokeObjectURL(url);
-	}, "image/png");
+
+	return new Promise((resolve) => {
+		out.toBlob((blob) => resolve(blob), "image/png");
+	});
+}
+
+async function exportPng() {
+	const blob = await createPngBlob();
+	if (!blob) return;
+
+	const url = URL.createObjectURL(blob);
+	const link = document.createElement("a");
+	link.href = url;
+	link.download = "krenzsketch.png";
+	document.body.appendChild(link);
+	link.click();
+	link.remove();
+	URL.revokeObjectURL(url);
+}
+
+async function sharePng() {
+	if (!("share" in navigator)) return;
+
+	const blob = await createPngBlob();
+	if (!blob) return;
+
+	// File-Sharing requires a File object.
+	if (typeof File === "undefined") return;
+	const file = new File([blob], "krenzsketch.png", { type: "image/png" });
+
+	const payload = {
+		title: "KrenzSketch",
+		files: [file],
+	};
+
+	try {
+		await navigator.share(payload);
+	} catch (err) {
+		// User canceled the share sheet.
+		if (err && err.name === "AbortError") return;
+		console.warn("Could not share drawing:", err);
+	}
+}
+
+function updateShareUi() {
+	// Feature detection without UA sniffing.
+	if (!ui.shareBtn) return;
+	ui.shareBtn.hidden = true;
+
+	if (!("share" in navigator) || typeof navigator.canShare !== "function") return;
+	if (typeof File === "undefined") return;
+
+	// Create a small dummy file for canShare().
+	const testBlob = new Blob([""], { type: "image/png" });
+	const testFile = new File([testBlob], "krenzsketch.png", { type: "image/png" });
+
+	let ok = false;
+	try {
+		ok = navigator.canShare({ files: [testFile] });
+	} catch {
+		ok = false;
+	}
+
+	ui.shareBtn.hidden = !ok;
 }
 
 function scheduleSave(immediate = false) {
@@ -472,6 +541,77 @@ function startDraw(event) {
 	state.pointerType = event.pointerType || "mouse";
 	const { x, y } = canvasPoint(event);
 	brush.strokeStart(x, y);
+
+	// Brush continuous stamping state
+	brushAnim.active = state.mode === "brush";
+	brushAnim.pointerX = x;
+	brushAnim.pointerY = y;
+	brushAnim.pointerPressure = pointerPressure(event);
+	brushAnim.drawX = x;
+	brushAnim.drawY = y;
+	brushAnim.lastStampAt = 0;
+	if (brushAnim.active) scheduleBrushTick();
+}
+
+const brushAnim = {
+	active: false,
+	pointerX: 0,
+	pointerY: 0,
+	pointerPressure: 1,
+	drawX: 0,
+	drawY: 0,
+	lastStampAt: 0,
+	timer: 0,
+};
+
+function scheduleBrushTick() {
+	if (brushAnim.timer) return;
+	brushAnim.timer = window.setTimeout(() => {
+		brushAnim.timer = 0;
+		brushTick();
+	}, BRUSH_STAMP_INTERVAL_MS);
+}
+
+function brushTick(now = performance.now()) {
+	if (!state.drawing || !brushAnim.active || state.mode !== "brush") return;
+
+	const x2 = brushAnim.pointerX;
+	const y2 = brushAnim.pointerY;
+	const x1 = brushAnim.drawX;
+	const y1 = brushAnim.drawY;
+	const dx = x2 - x1;
+	const dy = y2 - y1;
+	const dist = Math.sqrt(dx * dx + dy * dy);
+
+	const style = currentStyle(brushAnim.pointerPressure);
+	// Step spacing ensures a continuous broad brush even during fast movement.
+	// Keep brush strokes continuous while limiting stamp overlap (less "circle chain").
+	const stepDist = Math.max(0.8, style.size * 0.4);
+
+	let wrote = false;
+	if (dist >= stepDist) {
+		// Limit interpolated stamps per tick to avoid dense overlap.
+		const steps = Math.min(16, Math.ceil(dist / stepDist));
+		for (let i = 1; i <= steps; i++) {
+			const t = i / steps;
+			const xi = x1 + dx * t;
+			const yi = y1 + dy * t;
+			brush.stroke(xi, yi, style);
+			wrote = true;
+		}
+	} else {
+		brush.stroke(x2, y2, style);
+		wrote = true;
+	}
+
+	if (wrote) {
+		presentMaster();
+		brushAnim.drawX = x2;
+		brushAnim.drawY = y2;
+		brushAnim.lastStampAt = now;
+	}
+
+	scheduleBrushTick();
 }
 
 function onPointerDown(event) {
@@ -485,6 +625,7 @@ function onPointerDown(event) {
 
 	if (state.drawing) return;
 	if (event.button != null && event.button !== 0) return;
+
 	startDraw(event);
 }
 
@@ -493,6 +634,17 @@ function onPointerMove(event) {
 	event.preventDefault();
 	const events = typeof event.getCoalescedEvents === "function" ? event.getCoalescedEvents() : [event];
 	const list = events.length ? events : [event];
+
+	if (state.mode === "brush") {
+		// For brush we stamp continuously in RAF. Pointermove only updates target.
+		const ev = list[list.length - 1];
+		const { x, y } = canvasPoint(ev);
+		brushAnim.pointerX = x;
+		brushAnim.pointerY = y;
+		brushAnim.pointerPressure = pointerPressure(ev);
+		return;
+	}
+
 	for (const ev of list) {
 		const { x, y } = canvasPoint(ev);
 		brush.stroke(x, y, currentStyle(pointerPressure(ev)));
@@ -503,6 +655,8 @@ function onPointerMove(event) {
 function onPointerUp(event) {
 	if (!state.drawing || event.pointerId !== state.pointerId) return;
 	event.preventDefault();
+
+	brushAnim.active = false;
 	brush.strokeEnd();
 	state.drawing = false;
 	state.pointerId = null;
@@ -525,7 +679,7 @@ function bindUi() {
 		state.mode = ui.mode.value;
 		state.erasing = false;
 		resetBrush();
-		syncEraseUi();
+		syncToolUi();
 		saveSettings();
 		collapseToolsIfCompact();
 		ui.mode.blur();
@@ -533,8 +687,9 @@ function bindUi() {
 
 	ui.eraser.addEventListener("click", () => {
 		state.erasing = !state.erasing;
+		brushAnim.active = state.mode === "brush";
 		resetBrush();
-		syncEraseUi();
+		syncToolUi();
 		collapseToolsIfCompact();
 	});
 
@@ -568,8 +723,14 @@ function bindUi() {
 		collapseToolsIfCompact();
 	});
 	ui.exportBtn.addEventListener("click", () => {
-		exportPng();
+		void exportPng();
 		collapseToolsIfCompact();
+	});
+
+	ui.shareBtn?.addEventListener("click", () => {
+		void sharePng().finally(() => {
+			collapseToolsIfCompact();
+		});
 	});
 
 	ui.clear.addEventListener("click", () => {
@@ -629,13 +790,29 @@ function bindKeys() {
 async function registerWorker() {
 	if (!("serviceWorker" in navigator)) return;
 	try {
+		const isLocalDev = location.hostname === "127.0.0.1" || location.hostname === "localhost";
+		const autoSkipKey = "ks_auto_skip_sw";
+
 		const reg = await navigator.serviceWorker.register("./sw.js", { updateViaCache: "none" });
 
 		function onNewWorker(worker) {
-			if (worker.state === "installed") showUpdateBanner(worker);
-			else worker.addEventListener("statechange", () => {
-				if (worker.state === "installed") showUpdateBanner(worker);
-			});
+			if (worker.state !== "installed") {
+				worker.addEventListener("statechange", () => {
+					if (worker.state === "installed") onNewWorker(worker);
+				});
+				return;
+			}
+
+			// Local dev: force the new SW to become active immediately,
+			// so you see Brush tuning changes without manual "Update now".
+			if (isLocalDev && sessionStorage.getItem(autoSkipKey) !== "1") {
+				sessionStorage.setItem(autoSkipKey, "1");
+				worker.postMessage("skipWaiting");
+				window.location.reload();
+				return;
+			}
+
+			showUpdateBanner(worker);
 		}
 
 		if (reg.waiting) onNewWorker(reg.waiting);
@@ -687,6 +864,7 @@ function onResize() {
 async function init() {
 	loadSettings();
 	bindUi();
+	updateShareUi();
 	syncUi();
 	syncCompactClass();
 	bindCanvas();
