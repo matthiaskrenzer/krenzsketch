@@ -337,15 +337,47 @@ async function clearCanvas() {
 	resetView();
 }
 
+function getContentBounds() {
+	const w = canvas.width;
+	const h = canvas.height;
+	const data = ctx.getImageData(0, 0, w, h).data;
+	let top = h, left = w, bottom = -1, right = -1;
+	for (let y = 0; y < h; y++) {
+		for (let x = 0; x < w; x++) {
+			if (data[(y * w + x) * 4 + 3] > 0) {
+				if (y < top) top = y;
+				if (y > bottom) bottom = y;
+				if (x < left) left = x;
+				if (x > right) right = x;
+			}
+		}
+	}
+	if (bottom < 0) return null;
+	return {
+		x: Math.floor(left / dpr),
+		y: Math.floor(top / dpr),
+		w: Math.ceil((right + 1) / dpr) - Math.floor(left / dpr),
+		h: Math.ceil((bottom + 1) / dpr) - Math.floor(top / dpr),
+	};
+}
+
 function exportPng() {
+	const bounds = getContentBounds();
+	if (!bounds) {
+		console.log("Nothing to export");
+		return;
+	}
 	const out = document.createElement("canvas");
-	out.width = canvas.width;
-	out.height = canvas.height;
+	out.width = bounds.w;
+	out.height = bounds.h;
 	const outCtx = out.getContext("2d");
-	outCtx.globalCompositeOperation = "source-over";
 	outCtx.fillStyle = cssRgb(state.background);
-	outCtx.fillRect(0, 0, out.width, out.height);
-	outCtx.drawImage(canvas, 0, 0);
+	outCtx.fillRect(0, 0, bounds.w, bounds.h);
+	outCtx.drawImage(
+		canvas,
+		bounds.x * dpr, bounds.y * dpr, bounds.w * dpr, bounds.h * dpr,
+		0, 0, bounds.w, bounds.h,
+	);
 	out.toBlob((blob) => {
 		if (!blob) return;
 		const url = URL.createObjectURL(blob);
