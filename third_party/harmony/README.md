@@ -1,11 +1,12 @@
-Die Datei `LICENSE` in diesem Ordner ist die originale, unveränderte Lizenznotiz von Harmony:
+The `LICENSE` file in this directory is the original, unmodified license notice from Harmony:
 
-https://github.com/mrdoob/harmony
+- [github.com/mrdoob/harmony](https://github.com/mrdoob/harmony)
+- Harmony, Procedural Drawing Tool
+- Copyright (C) 2010 Mr.doob
+- GNU GPL v3 or later
 
-Harmony, Procedural Drawing Tool, Copyright (C) 2010 Mr.doob, GNU GPL v3 oder später.
+KrenzSketch is an independent modern implementation. The drawing modes in
+`src/js/brushes.js` are derived from the Harmony algorithms; KrenzSketch is
+therefore licensed under GPL-3.0-or-later.
 
-KrenzSketch ist eine eigenständige moderne Implementierung. Die Zeichenmodi in
-`src/js/brushes.js` sind von den Harmony-Algorithmen abgeleitet bzw. danach neu
-implementiert; deshalb steht KrenzSketch unter GPL-3.0-or-later.
-
-Der unveränderte offizielle GNU-GPL-v3-Text liegt im Projektroot in `LICENSE`.
+The full GNU GPL v3 text is in the project root at `LICENSE`.

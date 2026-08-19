@@ -2,7 +2,7 @@
   "id": "./",
   "name": "KrenzSketch",
   "short_name": "KrenzSketch",
-  "description": "Eigenständige Zeichen-PWA. Zeichenalgorithmen abgeleitet von Harmony (Mr.doob).",
+  "description": "Standalone drawing PWA. Brush algorithms derived from Harmony by Mr.doob.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

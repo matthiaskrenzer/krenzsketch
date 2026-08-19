@@ -6,16 +6,17 @@ Standalone, installable drawing PWA by Matthias Krenzer.
 
 ## Features
 
-- Procedural brushes: Sketchy, Shaded, Fur, Web, Line, Chrome
+- Fixed 2048×2048 document canvas, independent of screen size
+- Procedural brushes: Sketchy, Shaded, Fur, Web, Line, Chrome, Squares, Circles, Triangles
 - Procedural eraser
-- Ink and paper color pickers
+- Drawing color and paper color pickers
 - Adjustable stroke size with pen pressure support
-- Zoom and pan (pinch, scroll wheel, Space + drag)
-- Undo / Redo
-- PNG export
-- Persistent working drawing (IndexedDB)
+- Zoom, pan, and fit (pinch, scroll wheel, Space + drag)
+- Undo / Redo (full session history)
+- PNG export (always full document)
+- Local autosave and persistence (IndexedDB)
 - Clear with confirmation
-- Installable PWA, works offline
+- Installable offline PWA with controlled update mechanism
 - Compact collapsible toolbar on touch devices
 
 ## Tech

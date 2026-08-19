@@ -15,7 +15,7 @@ pnpm-debug.log*
 .env.*
 !.env.example
 
-# Firebase local cache (no project is configured yet)
+# Firebase local cache
 .firebase/
 firebase-debug.log
 firestore-debug.log

@@ -2,7 +2,7 @@
   "name": "krenzsketch",
   "version": "0.1.0",
   "private": true,
-  "description": "Installierbare Zeichen-PWA. Zeichenalgorithmen abgeleitet von Harmony (Mr.doob).",
+  "description": "Standalone drawing PWA. Brush algorithms derived from Harmony by Mr.doob.",
   "license": "GPL-3.0-or-later",
   "author": "Matthias Krenzer",
   "type": "module",
