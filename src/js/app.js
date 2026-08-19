@@ -19,9 +19,13 @@ const COMPACT_QUERIES = ["(hover: none)", "(pointer: coarse)", "(max-width: 1024
 
 const canvas = document.getElementById("canvas");
 const stage = document.getElementById("stage");
-const ctx = canvas.getContext("2d", { alpha: true, willReadFrequently: false });
 
 const dpr = Math.max(1, window.devicePixelRatio || 1);
+
+const master = document.createElement("canvas");
+const masterCtx = master.getContext("2d", { alpha: true, willReadFrequently: false });
+
+const displayCtx = canvas.getContext("2d", { alpha: true, willReadFrequently: false });
 
 const ui = {
 	mode: document.getElementById("mode"),
@@ -183,73 +187,91 @@ function canvasPoint(event) {
 	};
 }
 
-function fitContext() {
-	ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+function fitMasterContext() {
+	masterCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
 
-function sizeCanvas() {
+function ensureMaster(logW, logH) {
+	const needW = logW * dpr;
+	const needH = logH * dpr;
+	if (master.width >= needW && master.height >= needH) return;
+
+	const newW = Math.max(master.width, needW);
+	const newH = Math.max(master.height, needH);
+
+	let saved = null;
+	if (master.width > 0 && master.height > 0) {
+		saved = masterCtx.getImageData(0, 0, master.width, master.height);
+	}
+
+	master.width = newW;
+	master.height = newH;
+
+	if (saved) {
+		masterCtx.putImageData(saved, 0, 0);
+	}
+
+	fitMasterContext();
+	masterCtx.globalCompositeOperation = state.erasing ? "destination-out" : "source-over";
+}
+
+function sizeDisplay() {
 	const rect = stage.getBoundingClientRect();
 	const w = Math.round(rect.width);
 	const h = Math.round(rect.height);
 	if (w < 1 || h < 1) return;
 
-	const oldW = canvas.width;
-	const oldH = canvas.height;
-	const logW = w;
-	const logH = h;
-	const bmpW = logW * dpr;
-	const bmpH = logH * dpr;
+	const bmpW = w * dpr;
+	const bmpH = h * dpr;
 
-	if (bmpW === oldW && bmpH === oldH) return;
-
-	let saved = null;
-	if (oldW > 0 && oldH > 0) {
-		saved = ctx.getImageData(0, 0, oldW, oldH);
+	if (canvas.width !== bmpW || canvas.height !== bmpH) {
+		canvas.width = bmpW;
+		canvas.height = bmpH;
+		canvas.style.width = w + "px";
+		canvas.style.height = h + "px";
 	}
 
-	canvas.width = bmpW;
-	canvas.height = bmpH;
-	canvas.style.width = logW + "px";
-	canvas.style.height = logH + "px";
+	ensureMaster(w, h);
+	presentMaster();
+}
 
-	if (saved) {
-		ctx.putImageData(saved, 0, 0);
+function presentMaster() {
+	displayCtx.setTransform(1, 0, 0, 1, 0, 0);
+	displayCtx.clearRect(0, 0, canvas.width, canvas.height);
+	const sw = Math.min(canvas.width, master.width);
+	const sh = Math.min(canvas.height, master.height);
+	if (sw > 0 && sh > 0) {
+		displayCtx.drawImage(master, 0, 0, sw, sh, 0, 0, sw, sh);
 	}
-
-	fitContext();
-	ctx.globalCompositeOperation = state.erasing ? "destination-out" : "source-over";
-
-	undoStack.length = 0;
-	redoStack.length = 0;
-	lastHistoryBlob = null;
-	enqueueHistory(() => pushHistory());
 }
 
 function snapshotCanvas() {
 	return new Promise((resolve) => {
-		canvas.toBlob((blob) => resolve(blob), "image/png");
+		master.toBlob((blob) => resolve(blob), "image/png");
 	});
 }
 
 async function restoreSnapshot(snapshot) {
-	ctx.save();
-	ctx.globalCompositeOperation = "source-over";
-	ctx.setTransform(1, 0, 0, 1, 0, 0);
-	ctx.clearRect(0, 0, canvas.width, canvas.height);
+	masterCtx.save();
+	masterCtx.globalCompositeOperation = "source-over";
+	masterCtx.setTransform(1, 0, 0, 1, 0, 0);
+	masterCtx.clearRect(0, 0, master.width, master.height);
 	if (snapshot) {
 		const source = snapshot instanceof Blob
 			? await createImageBitmap(snapshot)
 			: snapshot;
-		ctx.drawImage(source, 0, 0, canvas.width, canvas.height);
+		masterCtx.drawImage(source, 0, 0);
 		if (source !== snapshot && typeof source.close === "function") source.close();
 	}
-	ctx.restore();
-	fitContext();
-	ctx.globalCompositeOperation = state.erasing ? "destination-out" : "source-over";
+	masterCtx.restore();
+	fitMasterContext();
+	masterCtx.globalCompositeOperation = state.erasing ? "destination-out" : "source-over";
+	presentMaster();
 }
 
 function resetBrush() {
-	brush = state.erasing ? createEraser(ctx) : createBrush(state.mode, ctx);
+	const opts = { displayCanvas: canvas };
+	brush = state.erasing ? createEraser(masterCtx) : createBrush(state.mode, masterCtx, opts);
 }
 
 async function pushHistory() {
@@ -295,20 +317,21 @@ async function resetHistory() {
 }
 
 async function clearCanvas() {
-	ctx.save();
-	ctx.globalCompositeOperation = "source-over";
-	ctx.setTransform(1, 0, 0, 1, 0, 0);
-	ctx.clearRect(0, 0, canvas.width, canvas.height);
-	ctx.restore();
-	fitContext();
+	masterCtx.save();
+	masterCtx.globalCompositeOperation = "source-over";
+	masterCtx.setTransform(1, 0, 0, 1, 0, 0);
+	masterCtx.clearRect(0, 0, master.width, master.height);
+	masterCtx.restore();
+	fitMasterContext();
 	resetBrush();
+	presentMaster();
 	await resetHistory();
 }
 
 function getContentBounds() {
-	const w = canvas.width;
-	const h = canvas.height;
-	const data = ctx.getImageData(0, 0, w, h).data;
+	const w = master.width;
+	const h = master.height;
+	const data = masterCtx.getImageData(0, 0, w, h).data;
 	let top = h, left = w, bottom = -1, right = -1;
 	for (let y = 0; y < h; y++) {
 		for (let x = 0; x < w; x++) {
@@ -342,7 +365,7 @@ function exportPng() {
 	outCtx.fillStyle = cssRgb(state.background);
 	outCtx.fillRect(0, 0, bounds.w, bounds.h);
 	outCtx.drawImage(
-		canvas,
+		master,
 		bounds.x * dpr, bounds.y * dpr, bounds.w * dpr, bounds.h * dpr,
 		0, 0, bounds.w, bounds.h,
 	);
@@ -386,8 +409,8 @@ async function flushSave() {
 		await saveWorkspace({
 			blob,
 			background: state.background.slice(),
-			width: canvas.width,
-			height: canvas.height,
+			width: master.width,
+			height: master.height,
 			savedAt: Date.now(),
 		});
 	} catch (err) {
@@ -418,15 +441,20 @@ async function restoreWorkspace() {
 			saveSettings();
 		}
 		const bitmap = await createImageBitmap(record.blob);
-		ctx.save();
-		ctx.globalCompositeOperation = "source-over";
-		ctx.setTransform(1, 0, 0, 1, 0, 0);
-		ctx.clearRect(0, 0, canvas.width, canvas.height);
-		ctx.drawImage(bitmap, 0, 0);
-		ctx.restore();
-		fitContext();
-		ctx.globalCompositeOperation = state.erasing ? "destination-out" : "source-over";
+		ensureMaster(
+			Math.ceil(bitmap.width / dpr),
+			Math.ceil(bitmap.height / dpr),
+		);
+		masterCtx.save();
+		masterCtx.globalCompositeOperation = "source-over";
+		masterCtx.setTransform(1, 0, 0, 1, 0, 0);
+		masterCtx.clearRect(0, 0, master.width, master.height);
+		masterCtx.drawImage(bitmap, 0, 0);
+		masterCtx.restore();
+		fitMasterContext();
+		masterCtx.globalCompositeOperation = state.erasing ? "destination-out" : "source-over";
 		if (typeof bitmap.close === "function") bitmap.close();
+		presentMaster();
 	} catch (err) {
 		console.warn("Could not restore drawing:", err);
 	}
@@ -469,6 +497,7 @@ function onPointerMove(event) {
 		const { x, y } = canvasPoint(ev);
 		brush.stroke(x, y, currentStyle(pointerPressure(ev)));
 	}
+	presentMaster();
 }
 
 function onPointerUp(event) {
@@ -477,6 +506,7 @@ function onPointerUp(event) {
 	brush.strokeEnd();
 	state.drawing = false;
 	state.pointerId = null;
+	presentMaster();
 	enqueueHistory(async () => {
 		await pushHistory();
 		scheduleSave(true);
@@ -645,10 +675,13 @@ function showUpdateBanner(worker) {
 	});
 }
 
-let resizeTimer = 0;
+let resizeRaf = 0;
 function onResize() {
-	clearTimeout(resizeTimer);
-	resizeTimer = setTimeout(() => sizeCanvas(), 100);
+	if (resizeRaf) return;
+	resizeRaf = requestAnimationFrame(() => {
+		resizeRaf = 0;
+		sizeDisplay();
+	});
 }
 
 async function init() {
@@ -675,8 +708,8 @@ async function init() {
 		}
 	});
 
-	sizeCanvas();
-	fitContext();
+	sizeDisplay();
+	fitMasterContext();
 	resetBrush();
 	await restoreWorkspace();
 	await pushHistory();

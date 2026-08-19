@@ -254,8 +254,9 @@ class ChromeBrush extends NeighbourBrush {
  * Original: js/brushes/simple.js
  */
 class SimpleBrush {
-	constructor(ctx) {
+	constructor(ctx, { displayCanvas } = {}) {
 		this.ctx = ctx;
+		this.displayCanvas = displayCanvas || ctx.canvas;
 		this.points = [];
 		this.overlay = document.createElement("canvas");
 		this.overlayCtx = this.overlay.getContext("2d");
@@ -268,16 +269,16 @@ class SimpleBrush {
 
 	strokeStart(x, y) {
 		this.points = [{ x, y }];
-		const main = this.ctx.canvas;
-		const dpr = main.width / parseInt(main.style.width);
-		this.overlay.width = main.width;
-		this.overlay.height = main.height;
+		const ref = this.displayCanvas;
+		const dpr = ref.width / parseInt(ref.style.width);
+		this.overlay.width = ref.width;
+		this.overlay.height = ref.height;
 		this.overlayCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-		this.overlay.style.cssText = main.style.cssText;
+		this.overlay.style.cssText = ref.style.cssText;
 		this.overlay.style.pointerEvents = "none";
 		this.overlay.style.position = "absolute";
-		main.parentNode.appendChild(this.overlay);
+		ref.parentNode.appendChild(this.overlay);
 	}
 
 	stroke(x, y, style) {
@@ -514,16 +515,16 @@ export const BRUSHES = [
 	{ id: "shaded", label: "Shaded", create: (ctx) => new ShadedBrush(ctx) },
 	{ id: "fur", label: "Fur", create: (ctx) => new FurBrush(ctx) },
 	{ id: "web", label: "Web", create: (ctx) => new WebBrush(ctx) },
-	{ id: "simple", label: "Line", create: (ctx) => new SimpleBrush(ctx) },
+	{ id: "simple", label: "Line", create: (ctx, opts) => new SimpleBrush(ctx, opts) },
 	{ id: "chrome", label: "Chrome", create: (ctx) => new ChromeBrush(ctx) },
 	{ id: "squares", label: "Squares", create: (ctx) => new SquaresBrush(ctx) },
 	{ id: "circles", label: "Circles", create: (ctx) => new CirclesBrush(ctx) },
 	{ id: "triangles", label: "Triangles", create: (ctx) => new TrianglesBrush(ctx) },
 ];
 
-export function createBrush(id, ctx) {
+export function createBrush(id, ctx, opts) {
 	const found = BRUSHES.find((item) => item.id === id) ?? BRUSHES[0];
-	const brush = found.create(ctx);
+	const brush = found.create(ctx, opts);
 	ctx.globalCompositeOperation = "source-over";
 	return brush;
 }
