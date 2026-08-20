@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="de">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Admin — Portrait Preprocess</title>
+		<link rel="stylesheet" href="./portrait-preprocess.css" />
+	</head>
+	<body>
+		<header class="bar">
+			<strong>KrenzSketch Admin — Portrait Preprocess</strong>
+			<span class="muted">Lokal · keine externe Bildgenerierung · kein Produktions-UI</span>
+			<a href="/">App</a>
+		</header>
+
+		<main class="wrap">
+			<section>
+				<h1>Line-Art Varianten</h1>
+				<p class="muted">
+					Vergleich Canny / XDoG / Hybrid. Pfade aus Centerline+Contours. Foto nie im finalen Canvas.
+				</p>
+				<div class="grid" id="variants"></div>
+			</section>
+
+			<section>
+				<h2>Gewählte Pfadvorlage</h2>
+				<div class="row">
+					<img id="lineart" alt="Line-Art" />
+					<object id="paths" type="image/svg+xml" data=""></object>
+				</div>
+				<pre id="summary"></pre>
+			</section>
+
+			<section>
+				<h2>Plotter</h2>
+				<p class="muted">
+					Zeichnen über
+					<code>node scripts/admin/run-portrait-plot.mjs</code>
+					— echte Pointer-Strokes in KrenzSketch.
+				</p>
+				<iframe id="app" title="KrenzSketch" src="/"></iframe>
+			</section>
+		</main>
+
+		<script type="module" src="./portrait-preprocess.js"></script>
+	</body>
+</html>

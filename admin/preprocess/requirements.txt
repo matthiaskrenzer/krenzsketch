@@ -1,0 +1,3 @@
+# Admin-only local deps (installed into ./vendor, not production).
+opencv-python-headless==4.10.0.84
+numpy==1.26.4

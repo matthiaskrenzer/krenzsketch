@@ -1,11 +1,8 @@
 # build output
 dist/
 
-# local Photo→Sketch / admin experiments (keep on disk, never publish)
+# local artifacts / large deps (never commit)
 tmp/
-admin/
-scripts/admin/
-scripts/admin-server.mjs
 admin/preprocess/vendor/
 
 # dependencies

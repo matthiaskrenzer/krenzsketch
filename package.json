@@ -12,6 +12,11 @@
   "scripts": {
     "build": "node scripts/build.mjs",
     "preview": "node scripts/preview.mjs",
-    "icons": "node scripts/generate-icons.mjs"
+    "icons": "node scripts/generate-icons.mjs",
+    "admin": "node scripts/admin-server.mjs",
+    "portrait-plot": "node scripts/admin/run-portrait-plot.mjs",
+    "portrait-sketchy": "node scripts/admin/run-portrait-sketchy-abc.mjs",
+    "soft-sketchy": "node scripts/admin/run-soft-sketchy.mjs",
+    "soft-sketchy-de": "node scripts/admin/run-soft-sketchy-de.mjs"
   }
 }
