@@ -1,6 +1,13 @@
 # build output
 dist/
 
+# local Photo→Sketch / admin experiments (keep on disk, never publish)
+tmp/
+admin/
+scripts/admin/
+scripts/admin-server.mjs
+admin/preprocess/vendor/
+
 # dependencies
 node_modules/
 
